@@ -98,6 +98,39 @@ export function renderSummary(summary: AnalysisSummary, useColor = !noColor()): 
 }
 
 /**
+ * Render staged change summary.
+ */
+export function renderChangeSummary(
+  stats: { filesChanged: number; insertions: number; deletions: number },
+  files: { status: string; path: string }[],
+  bullets: string[],
+  useColor = !noColor()
+): void {
+  const line = c(useColor, pc.gray, '━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`\n${line}`);
+  console.log(c(useColor, pc.blue, '📋 STAGED CHANGES'));
+  console.log(line);
+  console.log(`${stats.filesChanged} files changed, +${stats.insertions} -${stats.deletions} lines`);
+  if (files.length > 0) {
+    console.log('');
+    for (const f of files.slice(0, 20)) {
+      const statusColor = f.status === 'A' ? pc.green : f.status === 'D' ? pc.red : f.status === 'R' ? pc.yellow : pc.cyan;
+      console.log(`  ${useColor ? statusColor(f.status) : f.status} ${f.path}`);
+    }
+    if (files.length > 20) {
+      console.log(`  ... and ${files.length - 20} more files`);
+    }
+  }
+  if (bullets.length > 0) {
+    console.log('');
+    console.log('Summary:');
+    for (const b of bullets) {
+      console.log(`  • ${b}`);
+    }
+  }
+}
+
+/**
  * Print status message to stderr.
  */
 export function status(message: string): void {

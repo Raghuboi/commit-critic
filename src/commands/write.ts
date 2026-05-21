@@ -21,10 +21,11 @@
  */
 
 import { Command, Option } from 'clipanion';
-import { getStagedDiff, hasStagedChanges } from '../core/git';
+import { getStagedDiff, hasStagedChanges, getStagedStats, getStagedFiles } from '../core/git';
 import { runWriter } from '../core/writer';
+import { generateChangeBullets } from '../core/llm';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
-import { error } from '../ui/output';
+import { error, renderChangeSummary } from '../ui/output';
 import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR } from '../utils/exit-codes';
 
 export class WriteCommand extends Command {
@@ -87,6 +88,17 @@ export class WriteCommand extends Command {
       error(err.message || 'Failed to read staged diff');
       process.exit(EXIT_GENERAL_ERROR);
     }
+
+    // Show staged change summary before prompts
+    const stats = await getStagedStats(repoPath);
+    const files = await getStagedFiles(repoPath);
+    const bullets = await generateChangeBullets(
+      diff,
+      files,
+      this.noLlm ? undefined : aiConfig,
+      this.noLlm ? undefined : providerConfig
+    );
+    renderChangeSummary(stats, files, bullets);
 
     const message = await runWriter(diff, {
       preselectedType: this.type,

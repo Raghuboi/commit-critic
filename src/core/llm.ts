@@ -150,6 +150,57 @@ export async function generateCommitMessage(
   return result.text.trim();
 }
 
+/**
+ * Generate semantic change bullets from staged diff.
+ * Uses LLM when available, falls back to deterministic bullets from file paths.
+ */
+export async function generateChangeBullets(
+  diff: string,
+  files: { status: string; path: string }[],
+  aiConfig?: AIConfig,
+  providerConfig?: ProviderSpecificConfig
+): Promise<string[]> {
+  // Deterministic fallback: infer from file paths
+  const bullets: string[] = [];
+  const added = files.filter(f => f.status === 'A').map(f => f.path);
+  const modified = files.filter(f => f.status === 'M').map(f => f.path);
+  const deleted = files.filter(f => f.status === 'D').map(f => f.path);
+
+  if (added.length > 0) {
+    bullets.push(`Added ${added.length} file${added.length > 1 ? 's' : ''}`);
+  }
+  if (modified.length > 0) {
+    bullets.push(`Modified ${modified.length} file${modified.length > 1 ? 's' : ''}`);
+  }
+  if (deleted.length > 0) {
+    bullets.push(`Deleted ${deleted.length} file${deleted.length > 1 ? 's' : ''}`);
+  }
+
+  // Try LLM for richer bullets
+  if (aiConfig && providerConfig) {
+    try {
+      const model = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
+      const result = await generateText({
+        model,
+        prompt: `Given the following git diff, generate 3-5 concise semantic bullets summarizing the changes. Each bullet should be one short sentence.\n\n${diff.slice(0, 8000)}`,
+        temperature: 0.3,
+        maxOutputTokens: 300,
+      });
+      const lines = result.text
+        .split('\n')
+        .map(l => l.trim().replace(/^[-•*]\s*/, ''))
+        .filter(l => l.length > 0 && l.length < 120);
+      if (lines.length >= 2) {
+        return lines.slice(0, 5);
+      }
+    } catch {
+      // fall through to deterministic bullets
+    }
+  }
+
+  return bullets.length > 0 ? bullets : ['Updated files'];
+}
+
 export function extractJson(text: string): unknown | null {
   const codeFence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeFence) {

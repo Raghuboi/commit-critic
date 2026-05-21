@@ -84,6 +84,52 @@ export async function getStagedDiff(repoPath: string): Promise<string> {
 }
 
 /**
+ * Get staged file statistics (files changed, insertions, deletions).
+ */
+export async function getStagedStats(repoPath: string): Promise<{ filesChanged: number; insertions: number; deletions: number }> {
+  const output = await gitText(['diff', '--staged', '--numstat'], repoPath);
+  let filesChanged = 0;
+  let insertions = 0;
+  let deletions = 0;
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split(/\s+/);
+    if (parts.length >= 3) {
+      const ins = parts[0] === '-' ? 0 : parseInt(parts[0], 10);
+      const del = parts[1] === '-' ? 0 : parseInt(parts[1], 10);
+      if (!Number.isNaN(ins)) insertions += ins;
+      if (!Number.isNaN(del)) deletions += del;
+      filesChanged++;
+    }
+  }
+  return { filesChanged, insertions, deletions };
+}
+
+/**
+ * Get staged file list with status codes.
+ * Returns array of { status, path } where status is A/M/D/R.
+ */
+export async function getStagedFiles(repoPath: string): Promise<{ status: string; path: string }[]> {
+  const output = await gitText(['diff', '--staged', '--name-status'], repoPath);
+  const files: { status: string; path: string }[] = [];
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split('\t');
+    if (parts.length >= 2) {
+      files.push({ status: parts[0]!, path: parts[1]! });
+    } else if (parts.length === 1) {
+      // handle edge case
+      const s = trimmed[0] ?? '';
+      const p = trimmed.slice(1).trim();
+      if (p) files.push({ status: s, path: p });
+    }
+  }
+  return files;
+}
+
+/**
  * Check if there are staged changes.
  */
 export async function hasStagedChanges(repoPath: string): Promise<boolean> {
