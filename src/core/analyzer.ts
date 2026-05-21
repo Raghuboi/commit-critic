@@ -17,6 +17,7 @@ import { scoreCommit, isConventionalCommit, isMergeCommit } from './scorer';
 import { analyzeCommitWithLLM } from './llm';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
 import { createProgressBar } from '../ui/progress';
+import { warn } from '../ui/output';
 
 export interface AnalysisOptions {
   noLlm?: boolean;
@@ -26,6 +27,16 @@ export interface AnalysisOptions {
   aiConfig?: AIConfig;
   providerConfig?: ProviderSpecificConfig;
   showProgress?: boolean;
+}
+
+let fallbackCount = 0;
+
+export function getFallbackCount(): number {
+  return fallbackCount;
+}
+
+export function resetFallbackCount(): void {
+  fallbackCount = 0;
 }
 
 /**
@@ -58,6 +69,8 @@ export async function analyzeCommit(
       suggestions = llmResult.suggestions;
     } catch {
       // Fallback to deterministic score on LLM failure
+      fallbackCount++;
+      warn('LLM unavailable — using deterministic scoring. Check your API key and network connection.');
       if (options.strict) {
         throw new Error('LLM analysis failed and strict mode is enabled');
       }
@@ -84,6 +97,7 @@ export async function analyzeCommits(
   commits: Commit[],
   options: AnalysisOptions
 ): Promise<AnalysisResult[]> {
+  resetFallbackCount();
   const progress = options.showProgress && commits.length > 1 ? createProgressBar('Analyzing') : null;
   const results: AnalysisResult[] = [];
   for (let i = 0; i < commits.length; i++) {

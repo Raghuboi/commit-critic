@@ -88,6 +88,9 @@ export function renderSummary(summary: AnalysisSummary, useColor = !noColor()): 
   console.log(`Commits with body: ${summary.commitsWithBody}/${total} (${Math.round((summary.commitsWithBody / total) * 100)}%)`);
   const d = summary.scoreDistribution;
   console.log(`Score distribution: ${d.excellent} excellent | ${d.good} good | ${d.average} average | ${d.poor} poor | ${d.terrible} terrible`);
+  if (summary.llmFallbackCount > 0) {
+    console.log(`LLM fallback used for ${summary.llmFallbackCount} commit${summary.llmFallbackCount > 1 ? 's' : ''} (deterministic scoring)`);
+  }
   if (summary.topIssues.length > 0) {
     console.log('\nTop issues:');
     for (const issue of summary.topIssues.slice(0, 5)) {
@@ -135,6 +138,14 @@ export function renderChangeSummary(
  */
 export function status(message: string): void {
   process.stderr.write(message + '\n');
+}
+
+/**
+ * Print warning message to stderr.
+ */
+export function warn(message: string): void {
+  const useColor = !noColor();
+  process.stderr.write((useColor ? pc.yellow('Warning: ') : 'Warning: ') + message + '\n');
 }
 
 /**

@@ -20,7 +20,7 @@
 
 import { Command, Option } from 'clipanion';
 import { getCommits, isGitRepo } from '../core/git';
-import { analyzeCommits } from '../core/analyzer';
+import { analyzeCommits, getFallbackCount } from '../core/analyzer';
 import { analyzeRemoteRepo, isValidRepoUrl } from '../core/remote';
 import { renderAnalysis, status, error } from '../ui/output';
 import { formatJson, buildJsonOutput, isPiped } from '../ui/json';
@@ -191,12 +191,15 @@ function buildSummary(results: import('../types/analysis').AnalysisResult[], sta
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  const llmFallbackCount = getFallbackCount();
+
   return {
     commitCount: results.length,
     overallScore: parseFloat(overall.toFixed(1)),
     passed,
     warnings,
     errors,
+    llmFallbackCount,
     vagueCommits,
     oneWordCommits,
     conventionalCommits,

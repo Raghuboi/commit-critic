@@ -26,6 +26,7 @@ const summary: AnalysisSummary = {
   passed: 1,
   warnings: 1,
   errors: 1,
+  llmFallbackCount: 0,
   vagueCommits: 2,
   oneWordCommits: 1,
   conventionalCommits: 1,

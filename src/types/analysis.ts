@@ -42,6 +42,8 @@ export interface AnalysisSummary {
   warnings: number;
   /** Number of commits with errors (score < 5) */
   errors: number;
+  /** Number of commits where LLM fallback was used */
+  llmFallbackCount: number;
   /** Number of vague commits (score < 5) */
   vagueCommits: number;
   /** Number of one-word commits */
