@@ -34,12 +34,9 @@ export function isValidRepoUrl(url: string): boolean {
   if (!url || url.trim().length === 0) return false;
   if (url.startsWith('https://') || url.startsWith('git@')) return true;
   if (url.startsWith('file://')) return true;
-  // Local file path
-  try {
-    const stat = Bun.file(url).size;
-    return true; // exists as file or dir
-  } catch {
-    // ignore
-  }
+  // Reject plain text that doesn't look like a path
+  if (url.includes(' ') || url.includes('\n')) return false;
+  // Only accept absolute paths for local paths
+  if (url.startsWith('/')) return true;
   return false;
 }

@@ -23,10 +23,14 @@ describe('isValidRepoUrl', () => {
   });
 
   test('rejects random text', () => {
-    expect(isValidRepoUrl('not-a-url')).toBe(true); // local path may exist
+    expect(isValidRepoUrl('not-a-url')).toBe(false);
   });
 
-  test('accepts http URLs (legacy support)', () => {
-    expect(isValidRepoUrl('http://example.com/repo.git')).toBe(true);
+  test('rejects http URLs', () => {
+    expect(isValidRepoUrl('http://example.com/repo.git')).toBe(false);
+  });
+
+  test('accepts absolute local paths', () => {
+    expect(isValidRepoUrl('/home/user/repo')).toBe(true);
   });
 });

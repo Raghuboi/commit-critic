@@ -112,8 +112,7 @@ export class AnalyzeCommand extends Command {
         commits = await analyzeRemoteRepo(this.url, async (tempPath) => {
           repoName = this.url!;
           if (!(await isGitRepo(tempPath))) {
-            error('Cloned directory is not a valid git repository');
-            process.exit(EXIT_GENERAL_ERROR);
+            throw new Error('Cloned directory is not a valid git repository');
           }
           return getCommits(tempPath, count, this.noMerges);
         });
