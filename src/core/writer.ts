@@ -51,15 +51,15 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
     console.log('  ' + suggestion.split('\n').join('\n  '));
     console.log('');
 
-    const action = await promptAction();
-    if (action === 'accept') {
-      return suggestion;
+    const result = await promptAction(suggestion);
+    if (result.action === 'accept') {
+      return result.message ?? suggestion;
     }
-    if (action === 'edit') {
+    if (result.action === 'edit') {
       suggestion = await promptEdit(suggestion);
       continue;
     }
-    if (action === 'regenerate') {
+    if (result.action === 'regenerate') {
       if (options.noLlm || !options.aiConfig || !options.providerConfig) {
         suggestion = buildTemplateMessage(type, scope, description);
       } else {
@@ -68,7 +68,7 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
       }
       continue;
     }
-    if (action === 'cancel') {
+    if (result.action === 'cancel') {
       return null;
     }
   }

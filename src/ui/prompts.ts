@@ -49,18 +49,19 @@ export async function promptDescription(): Promise<string> {
 
 /**
  * Prompt for accept/edit/regenerate/cancel.
+ * Enter = accept, type text = custom message, /e = edit, /r = regenerate, /c = cancel.
  */
-export async function promptAction(): Promise<'accept' | 'edit' | 'regenerate' | 'cancel'> {
-  const answer = await select<'accept' | 'edit' | 'regenerate' | 'cancel'>({
-    message: 'What would you like to do?',
-    choices: [
-      { name: 'Accept', value: 'accept' },
-      { name: 'Edit', value: 'edit' },
-      { name: 'Regenerate', value: 'regenerate' },
-      { name: 'Cancel', value: 'cancel' },
-    ],
+export async function promptAction(suggestion: string): Promise<{ action: 'accept'; message?: string } | { action: 'edit' } | { action: 'regenerate' } | { action: 'cancel' }> {
+  const answer = await input({
+    message: `Press Enter to accept, type a custom message, or /e=edit /r=regenerate /c=cancel:`,
+    default: suggestion,
   });
-  return answer;
+  const trimmed = answer.trim();
+  if (trimmed === '/e') return { action: 'edit' };
+  if (trimmed === '/r') return { action: 'regenerate' };
+  if (trimmed === '/c') return { action: 'cancel' };
+  if (trimmed === suggestion) return { action: 'accept' };
+  return { action: 'accept', message: trimmed };
 }
 
 /**
