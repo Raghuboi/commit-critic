@@ -18,7 +18,7 @@ import pc from 'picocolors';
 import { noColor } from '../utils/env';
 
 export class DoctorCommand extends Command {
-  static paths = [['doctor']];
+  static paths = [['doctor'], ['--doctor']];
   static usage = Command.Usage({
     category: 'Diagnostics',
     description: 'Run health checks',

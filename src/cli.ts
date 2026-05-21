@@ -11,16 +11,22 @@
  *   commit-critic doctor [options]
  */
 
-import { Cli } from 'clipanion';
+import { Cli, Builtins } from 'clipanion';
 import { AnalyzeCommand } from './commands/analyze';
 import { WriteCommand } from './commands/write';
 import { DoctorCommand } from './commands/doctor';
 
-const cli = Cli.from([
-  AnalyzeCommand,
-  WriteCommand,
-  DoctorCommand,
-]);
+const cli = new Cli({
+  binaryName: 'commit-critic',
+  binaryLabel: 'commit-critic',
+  binaryVersion: '0.1.0',
+});
+
+cli.register(AnalyzeCommand);
+cli.register(WriteCommand);
+cli.register(DoctorCommand);
+cli.register(Builtins.HelpCommand);
+cli.register(Builtins.VersionCommand);
 
 // Exit with semantic code
 const exitCode = await cli.runExit(process.argv.slice(2));
