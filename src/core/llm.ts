@@ -37,7 +37,7 @@ const AnalysisSchema = z.object({
 
 export type LLMAnalysisResult = z.infer<typeof AnalysisSchema>;
 
-function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig) {
+export function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig) {
   switch (aiConfig.provider) {
     case 'openai': {
       return openai;
@@ -96,12 +96,12 @@ export async function analyzeCommitWithLLM(
   aiConfig: AIConfig,
   providerConfig: ProviderSpecificConfig
 ): Promise<LLMAnalysisResult> {
-  const provider = getProvider(aiConfig, providerConfig);
+  const model = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
   const prompt = buildAnalysisPrompt(commit, deterministic);
 
   try {
     const result = await generateText({
-      model: provider(aiConfig.model),
+      model,
       output: Output.object({ schema: AnalysisSchema }),
       prompt,
       temperature: aiConfig.temperature,
@@ -111,7 +111,7 @@ export async function analyzeCommitWithLLM(
   } catch (err) {
     if (err instanceof NoObjectGeneratedError) {
       const result = await generateText({
-        model: provider(aiConfig.model),
+        model,
         prompt: prompt + '\n\nRespond with valid JSON only.',
         temperature: aiConfig.temperature,
         maxOutputTokens: aiConfig.maxTokens,
@@ -137,11 +137,11 @@ export async function generateCommitMessage(
   aiConfig: AIConfig,
   providerConfig: ProviderSpecificConfig
 ): Promise<string> {
-  const provider = getProvider(aiConfig, providerConfig);
+  const model = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
   const prompt = buildWritePrompt(diff, type, scope, description);
 
   const result = await generateText({
-    model: provider(aiConfig.model),
+    model,
     prompt,
     temperature: aiConfig.temperature,
     maxOutputTokens: aiConfig.maxTokens,

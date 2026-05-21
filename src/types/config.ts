@@ -20,6 +20,12 @@ export interface AIConfig {
   maxRetries: number;
   /** Fallback chain: comma-separated provider:model pairs */
   fallbackChain: string[];
+  /**
+   * Internal: inject a mock model for testing.
+   * When set, this model is used directly instead of resolving a provider.
+   * @internal
+   */
+  __testModel?: import('@ai-sdk/provider').LanguageModelV4;
 }
 
 /**

@@ -100,7 +100,7 @@ commit-critic doctor
 ## Scoring
 
 - **Deterministic pre-filter**: Rule-based checks for structure, conventional commits, subject quality, body quality, and diff correlation.
-- **LLM semantic**: Contextual evaluation of specificity, intent, clarity, and actionability. LLM owns the final score (1-10) with deterministic results provided as context.
+- **LLM semantic**: Contextual review of specificity, intent, clarity, and actionability. LLM owns the final score (1-10) with deterministic results provided as context.
 
 Use `--no-llm` for deterministic-only scoring when offline.
 

@@ -2,10 +2,10 @@
  * Interactive prompts wrapper
  *
  * Wraps @inquirer/prompts for write mode.
- * Provides: text, select, confirm inputs.
+ * Provides: text, select inputs.
  */
 
-import { select, input, confirm } from '@inquirer/prompts';
+import { select, input } from '@inquirer/prompts';
 
 const COMMIT_TYPES = [
   { name: 'feat', value: 'feat', description: 'A new feature' },
@@ -68,12 +68,4 @@ export async function promptAction(): Promise<'accept' | 'edit' | 'regenerate' |
  */
 export async function promptEdit(current: string): Promise<string> {
   return input({ message: 'Edit commit message:', default: current });
-}
-
-/**
- * Prompt user to confirm a commit message.
- * @deprecated Not currently used. Retained for future use.
- */
-export async function promptCommitConfirm(message: string): Promise<boolean> {
-  return confirm({ message: `Commit with message: "${message}"?` });
 }

@@ -22,3 +22,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Internal agent docs (private)
+AGENTS.md
+**/AGENTS.md
+
+# Reports
+__reports__/
