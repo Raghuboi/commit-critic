@@ -167,6 +167,19 @@ function buildSummary(results: import('../types/analysis').AnalysisResult[], sta
   const warnings = results.filter(r => r.score >= 5 && r.score < 7).length;
   const errors = results.filter(r => r.score < 5).length;
 
+  const vagueCommits = results.filter(r => r.score < 5).length;
+  const oneWordCommits = results.filter(r => r.subject.trim().split(/\s+/).filter(Boolean).length === 1).length;
+  const conventionalCommits = results.filter(r => r.isConventionalCommit).length;
+  const commitsWithBody = results.filter(r => r.hasBody).length;
+
+  const scoreDistribution = {
+    excellent: results.filter(r => r.score >= 9).length,
+    good: results.filter(r => r.score >= 7 && r.score <= 8).length,
+    average: results.filter(r => r.score >= 5 && r.score <= 6).length,
+    poor: results.filter(r => r.score >= 3 && r.score <= 4).length,
+    terrible: results.filter(r => r.score <= 2).length,
+  };
+
   const categoryCounts = new Map<string, number>();
   for (const r of results) {
     for (const issue of r.issues) {
@@ -184,6 +197,11 @@ function buildSummary(results: import('../types/analysis').AnalysisResult[], sta
     passed,
     warnings,
     errors,
+    vagueCommits,
+    oneWordCommits,
+    conventionalCommits,
+    commitsWithBody,
+    scoreDistribution,
     topIssues,
     durationMs: Date.now() - startMs,
   };

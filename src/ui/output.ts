@@ -76,11 +76,18 @@ export function renderCommit(result: AnalysisResult, useColor = !noColor()): voi
  */
 export function renderSummary(summary: AnalysisSummary, useColor = !noColor()): void {
   const line = c(useColor, pc.gray, '━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  const total = summary.commitCount || 1;
   console.log(`\n${line}`);
   console.log(c(useColor, pc.blue, '📊 YOUR STATS'));
   console.log(line);
   console.log(`Average score: ${summary.overallScore.toFixed(1)}/10`);
   console.log(`Passed: ${summary.passed} | Warnings: ${summary.warnings} | Errors: ${summary.errors}`);
+  console.log(`Vague commits: ${summary.vagueCommits}/${total} (${Math.round((summary.vagueCommits / total) * 100)}%)`);
+  console.log(`One-word commits: ${summary.oneWordCommits}/${total} (${Math.round((summary.oneWordCommits / total) * 100)}%)`);
+  console.log(`Conventional commits: ${summary.conventionalCommits}/${total} (${Math.round((summary.conventionalCommits / total) * 100)}%)`);
+  console.log(`Commits with body: ${summary.commitsWithBody}/${total} (${Math.round((summary.commitsWithBody / total) * 100)}%)`);
+  const d = summary.scoreDistribution;
+  console.log(`Score distribution: ${d.excellent} excellent | ${d.good} good | ${d.average} average | ${d.poor} poor | ${d.terrible} terrible`);
   if (summary.topIssues.length > 0) {
     console.log('\nTop issues:');
     for (const issue of summary.topIssues.slice(0, 5)) {

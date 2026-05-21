@@ -26,6 +26,11 @@ const summary: AnalysisSummary = {
   passed: 1,
   warnings: 1,
   errors: 1,
+  vagueCommits: 2,
+  oneWordCommits: 1,
+  conventionalCommits: 1,
+  commitsWithBody: 0,
+  scoreDistribution: { excellent: 0, good: 1, average: 0, poor: 1, terrible: 1 },
   topIssues: [{ category: 'subject', count: 2 }],
   durationMs: 100,
 };
@@ -59,4 +64,19 @@ test('JSON output has expected top-level shape', () => {
   expect(json).toHaveProperty('stats');
   expect(json).toHaveProperty('topIssues');
   expect(json).toHaveProperty('durationMs');
+});
+
+test('JSON stats match summary stats', () => {
+  const results = [
+    makeResult('feat: add login', 8),
+    makeResult('wip', 2),
+    makeResult('fix bug', 4),
+  ];
+  const s = { ...summary, commitCount: 3 };
+  const json = buildJsonOutput('analyze', '/repo', results, s, '0.1.0');
+  expect(json.stats.vagueCommits).toBe(s.vagueCommits);
+  expect(json.stats.oneWordCommits).toBe(s.oneWordCommits);
+  expect(json.stats.conventionalCommits).toBe(s.conventionalCommits);
+  expect(json.stats.commitsWithBody).toBe(s.commitsWithBody);
+  expect(json.stats.scoreDistribution).toEqual(s.scoreDistribution);
 });

@@ -42,6 +42,16 @@ export interface AnalysisSummary {
   warnings: number;
   /** Number of commits with errors (score < 5) */
   errors: number;
+  /** Number of vague commits (score < 5) */
+  vagueCommits: number;
+  /** Number of one-word commits */
+  oneWordCommits: number;
+  /** Number of conventional commits */
+  conventionalCommits: number;
+  /** Number of commits with body */
+  commitsWithBody: number;
+  /** Score distribution */
+  scoreDistribution: ScoreDistribution;
   /** Top issue categories by frequency */
   topIssues: { category: string; count: number }[];
   /** Analysis duration in milliseconds */

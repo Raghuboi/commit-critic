@@ -5,7 +5,7 @@
  * Follows the schema defined in types/analysis.ts JsonOutput.
  */
 
-import type { JsonOutput, AnalysisResult, AnalysisSummary, ScoreDistribution } from '../types/analysis';
+import type { JsonOutput, AnalysisResult, AnalysisSummary } from '../types/analysis';
 import { isTTY } from '../utils/env';
 
 /**
@@ -32,13 +32,7 @@ export function buildJsonOutput(
   summary: AnalysisSummary,
   version: string
 ): JsonOutput {
-  const distribution: ScoreDistribution = {
-    excellent: results.filter(r => r.score >= 9).length,
-    good: results.filter(r => r.score >= 7 && r.score <= 8).length,
-    average: results.filter(r => r.score >= 5 && r.score <= 6).length,
-    poor: results.filter(r => r.score >= 3 && r.score <= 4).length,
-    terrible: results.filter(r => r.score <= 2).length,
-  };
+  const total = results.length || 1;
 
   return {
     version,
@@ -54,15 +48,15 @@ export function buildJsonOutput(
     commits: results,
     stats: {
       averageScore: summary.overallScore,
-      vagueCommits: results.filter(r => r.score < 5).length,
-      vagueCommitsPercent: Math.round((results.filter(r => r.score < 5).length / results.length) * 100) || 0,
-      oneWordCommits: results.filter(r => r.subject.trim().split(/\s+/).filter(Boolean).length === 1).length,
-      oneWordCommitsPercent: Math.round((results.filter(r => r.subject.trim().split(/\s+/).filter(Boolean).length === 1).length / results.length) * 100) || 0,
-      conventionalCommits: results.filter(r => r.isConventionalCommit).length,
-      conventionalCommitsPercent: Math.round((results.filter(r => r.isConventionalCommit).length / results.length) * 100) || 0,
-      commitsWithBody: results.filter(r => r.hasBody).length,
-      commitsWithBodyPercent: Math.round((results.filter(r => r.hasBody).length / results.length) * 100) || 0,
-      scoreDistribution: distribution,
+      vagueCommits: summary.vagueCommits,
+      vagueCommitsPercent: Math.round((summary.vagueCommits / total) * 100),
+      oneWordCommits: summary.oneWordCommits,
+      oneWordCommitsPercent: Math.round((summary.oneWordCommits / total) * 100),
+      conventionalCommits: summary.conventionalCommits,
+      conventionalCommitsPercent: Math.round((summary.conventionalCommits / total) * 100),
+      commitsWithBody: summary.commitsWithBody,
+      commitsWithBodyPercent: Math.round((summary.commitsWithBody / total) * 100),
+      scoreDistribution: summary.scoreDistribution,
     },
     topIssues: summary.topIssues,
     durationMs: summary.durationMs,
