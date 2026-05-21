@@ -24,4 +24,6 @@ const cli = Cli.from([
 
 // Exit with semantic code
 const exitCode = await cli.runExit(process.argv.slice(2));
-process.exit(exitCode);
+if (typeof exitCode === 'number') {
+  process.exit(exitCode);
+}

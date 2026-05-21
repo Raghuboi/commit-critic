@@ -1,7 +1,24 @@
 node_modules/
 dist/
 .env
+.env.local
 *.tsbuildinfo
 coverage/
+
+# Internal research, references, agent notes (private)
+.internal/
+.hermes/
+research/
 reference/
 references/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

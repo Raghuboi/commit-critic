@@ -11,6 +11,8 @@
  * - cloneRepo(url, dest, depth): Shallow clone remote repo
  */
 
+import type { Commit } from '../types/commit';
+
 /**
  * Fetch last N commits from a git repository.
  *
@@ -51,14 +53,4 @@ export async function cloneRepo(_url: string, _dest: string, _depth: number): Pr
   // TODO: Implement
 }
 
-/**
- * Commit data structure from git log.
- */
-export interface Commit {
-  hash: string;
-  shortHash: string;
-  subject: string;
-  body: string;
-  author: string;
-  date: string;
-}
+// Commit type is defined in types/commit.ts — import from there

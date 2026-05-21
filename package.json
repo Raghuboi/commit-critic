@@ -18,17 +18,19 @@
     "compile:windows": "bun build ./src/cli.ts --compile --target=bun-windows-x64 --outfile ./dist/commit-critic-windows-x64.exe --minify"
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.5.3",
+    "ai": "^4.0.39",
+    "@ai-sdk/openai": "^1.3.0",
+    "@ai-sdk/openai-compatible": "^1.0.1",
     "clipanion": "^3.2.1",
-    "ai": "^4.0.0",
-    "@ai-sdk/openai": "^1.0.0",
-    "@ai-sdk/openai-compatible": "^1.0.0",
-    "zod": "^3.24.0",
     "picocolors": "^1.1.1",
-    "prompts": "^2.4.2"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/prompts": "^2.4.9",
-    "bun-types": "latest"
+    "@types/bun": "^1.3.13",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.3.9"
   }
 }

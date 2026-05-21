@@ -15,7 +15,7 @@
  * Returns: score (0-10) + array of issues with severity
  */
 
-import type { Commit } from './git';
+import type { Commit } from '../types/commit';
 import type { ScoringResult, Issue } from '../types/scoring';
 
 /**

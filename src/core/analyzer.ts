@@ -10,7 +10,7 @@
  * 4. Return analysis result with score, issues, suggestions
  */
 
-import type { Commit } from './git';
+import type { Commit } from '../types/commit';
 import type { AnalysisResult } from '../types/analysis';
 
 /**

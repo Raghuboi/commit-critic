@@ -1,6 +1,9 @@
 [install]
 peer = false
+saveTextLockfile = true
 
 [test]
-# Timeout for test runs
 timeout = 30000
+
+[run]
+shell = "bun"
