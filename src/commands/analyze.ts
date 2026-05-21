@@ -108,7 +108,7 @@ export class AnalyzeCommand extends Command {
           error('Invalid repository URL', 'Use a valid git URL (https://, git@, or file://)');
           process.exit(EXIT_BAD_INPUT);
         }
-        status(`Cloning ${this.url}...`);
+        status(`Cloning ${this.url}...`, this.json);
         commits = await analyzeRemoteRepo(this.url, async (tempPath) => {
           repoName = this.url!;
           if (!(await isGitRepo(tempPath))) {
@@ -124,16 +124,16 @@ export class AnalyzeCommand extends Command {
         commits = await getCommits(repoPath, count, this.noMerges);
       }
     } catch (err: any) {
-      error(err.message || 'Failed to read commits');
+      error(err.message || 'Failed to read commits', 'Check the repository URL and network connection, or use --no-llm for offline mode.');
       process.exit(EXIT_GENERAL_ERROR);
     }
 
     if (commits.length === 0) {
-      status('No commits found.');
+      status('No commits found.', this.json);
       process.exit(EXIT_SUCCESS);
     }
 
-    status(`Analyzing ${commits.length} commits...`);
+    status(`Analyzing ${commits.length} commits...`, this.json);
 
     const results = await analyzeCommits(commits, {
       noLlm: this.noLlm,

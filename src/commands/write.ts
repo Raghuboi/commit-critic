@@ -85,7 +85,7 @@ export class WriteCommand extends Command {
     try {
       diff = await getStagedDiff(repoPath);
     } catch (err: any) {
-      error(err.message || 'Failed to read staged diff');
+      error(err.message || 'Failed to read staged diff', 'Ensure you are in a git repository with staged changes (git add)');
       process.exit(EXIT_GENERAL_ERROR);
     }
 

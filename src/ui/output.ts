@@ -134,10 +134,10 @@ export function renderChangeSummary(
 }
 
 /**
- * Print status message to stderr.
+ * Print status message to stderr (suppressed in JSON mode).
  */
-export function status(message: string): void {
-  process.stderr.write(message + '\n');
+export function status(message: string, suppress = false): void {
+  if (!suppress) process.stderr.write(message + '\n');
 }
 
 /**
