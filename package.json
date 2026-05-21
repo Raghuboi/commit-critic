@@ -1,0 +1,34 @@
+{
+  "name": "commit-critic",
+  "version": "0.1.0",
+  "description": "AI-powered commit message critic and writer",
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "commit-critic": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build ./src/cli.ts --outdir ./dist --target=bun --minify",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "compile:linux": "bun build ./src/cli.ts --compile --target=bun-linux-x64 --outfile ./dist/commit-critic-linux-x64 --minify",
+    "compile:mac-arm": "bun build ./src/cli.ts --compile --target=bun-darwin-arm64 --outfile ./dist/commit-critic-darwin-arm64 --minify",
+    "compile:mac-intel": "bun build ./src/cli.ts --compile --target=bun-darwin-x64 --outfile ./dist/commit-critic-darwin-x64 --minify",
+    "compile:windows": "bun build ./src/cli.ts --compile --target=bun-windows-x64 --outfile ./dist/commit-critic-windows-x64.exe --minify"
+  },
+  "dependencies": {
+    "clipanion": "^3.2.1",
+    "ai": "^4.0.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "@ai-sdk/openai-compatible": "^1.0.0",
+    "zod": "^3.24.0",
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/prompts": "^2.4.9",
+    "bun-types": "latest"
+  }
+}
