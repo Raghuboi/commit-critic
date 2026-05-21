@@ -18,7 +18,6 @@ import {
   promptDescription,
   promptAction,
   promptEdit,
-  promptCommitConfirm,
 } from '../ui/prompts';
 import { truncateDiff } from '../utils/diff';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
@@ -54,11 +53,7 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
 
     const action = await promptAction();
     if (action === 'accept') {
-      const shouldCommit = await promptCommitConfirm(suggestion);
-      if (shouldCommit) {
-        return suggestion;
-      }
-      continue;
+      return suggestion;
     }
     if (action === 'edit') {
       suggestion = await promptEdit(suggestion);
