@@ -10,12 +10,22 @@ import type { Issue } from './scoring';
 export interface AnalysisResult {
   /** Commit hash */
   hash: string;
+  /** Short hash */
+  shortHash: string;
+  /** Subject line */
+  subject: string;
   /** Combined score (0-10) */
   score: number;
   /** Issues found */
   issues: Issue[];
   /** Suggestions for improvement */
   suggestions: string[];
+  /** Whether the commit follows conventional commit format */
+  isConventionalCommit: boolean;
+  /** Whether the commit is a merge commit */
+  isMergeCommit: boolean;
+  /** Whether the commit has a body */
+  hasBody: boolean;
 }
 
 /**
@@ -36,6 +46,17 @@ export interface AnalysisSummary {
   topIssues: { category: string; count: number }[];
   /** Analysis duration in milliseconds */
   durationMs: number;
+}
+
+/**
+ * Score distribution buckets.
+ */
+export interface ScoreDistribution {
+  excellent: number; // 9-10
+  good: number;      // 7-8
+  average: number;   // 5-6
+  poor: number;      // 3-4
+  terrible: number;  // 1-2
 }
 
 /**
@@ -60,6 +81,19 @@ export interface JsonOutput {
   };
   /** Individual commit results */
   commits: AnalysisResult[];
+  /** Stats */
+  stats: {
+    averageScore: number;
+    vagueCommits: number;
+    vagueCommitsPercent: number;
+    oneWordCommits: number;
+    oneWordCommitsPercent: number;
+    conventionalCommits: number;
+    conventionalCommitsPercent: number;
+    commitsWithBody: number;
+    commitsWithBodyPercent: number;
+    scoreDistribution: ScoreDistribution;
+  };
   /** Top issues */
   topIssues: { category: string; count: number }[];
   /** Duration in milliseconds */

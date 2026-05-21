@@ -8,23 +8,22 @@
  * - NO_COLOR support
  */
 
+import { getEnvBool, isTTY, noColor } from '../utils/env';
 import type { AppConfig } from '../types/config';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-/**
- * Default config directory.
- */
-const DEFAULT_CONFIG_DIR = '~/.config/commit-critic';
+const DEFAULT_CONFIG_DIR = join(homedir(), '.config', 'commit-critic');
 
 /**
  * Resolve app configuration.
  */
-export function resolveAppConfig(): AppConfig {
-  // TODO: Implement
+export function resolveAppConfig(overrides?: Partial<AppConfig>): AppConfig {
   return {
-    configDir: DEFAULT_CONFIG_DIR,
-    jsonOutput: false,
-    verbose: false,
-    noColor: false,
+    configDir: overrides?.configDir ?? DEFAULT_CONFIG_DIR,
+    jsonOutput: overrides?.jsonOutput ?? false,
+    verbose: overrides?.verbose ?? getEnvBool('VERBOSE', false),
+    noColor: overrides?.noColor ?? noColor(),
   };
 }
 
@@ -32,6 +31,5 @@ export function resolveAppConfig(): AppConfig {
  * Get config directory path (expanded).
  */
 export function getConfigDir(): string {
-  // TODO: Implement — expand ~ to home directory
   return DEFAULT_CONFIG_DIR;
 }

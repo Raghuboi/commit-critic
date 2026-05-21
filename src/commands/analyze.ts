@@ -19,6 +19,14 @@
  */
 
 import { Command, Option } from 'clipanion';
+import { getCommits, isGitRepo } from '../core/git';
+import { analyzeCommits } from '../core/analyzer';
+import { analyzeRemoteRepo, isValidRepoUrl } from '../core/remote';
+import { renderAnalysis, status, error } from '../ui/output';
+import { formatJson, buildJsonOutput, isPiped } from '../ui/json';
+import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
+import type { AnalysisSummary } from '../types/analysis';
+import { version } from '../../package.json';
 
 export class AnalyzeCommand extends Command {
   static paths = [['analyze'], ['a'], ['--analyze']];
@@ -67,12 +75,114 @@ export class AnalyzeCommand extends Command {
   });
 
   async execute() {
-    // TODO: Implement analyze logic
-    // 1. Resolve repo path (current or remote clone)
-    // 2. Fetch commits via git log
-    // 3. Run deterministic scoring
-    // 4. Run LLM scoring (if not --no-llm)
-    // 5. Combine and render results
-    this.context.stdout.write('Not implemented yet\n');
+    const startMs = Date.now();
+    const repoPath = process.cwd();
+    const count = parseInt(this.count, 10);
+    if (Number.isNaN(count) || count <= 0) {
+      error('Invalid --count value', 'Use a positive integer like --count 50');
+      return this.cli.run(['--help']);
+    }
+
+    // Resolve AI config
+    const aiConfig = resolveAIConfig({
+      provider: this.provider,
+      model: this.model,
+    });
+    const providerConfig = resolveProviderConfig();
+
+    if (!this.noLlm) {
+      const validationError = validateAIConfig(aiConfig);
+      if (validationError) {
+        error(validationError, 'Set the required environment variable or use --no-llm for offline mode.');
+        process.exit(3);
+      }
+    }
+
+    let commits;
+    let repoName = repoPath;
+
+    try {
+      if (this.url) {
+        if (!isValidRepoUrl(this.url)) {
+          error('Invalid repository URL', 'Use a valid git URL (https://, git@, or file://)');
+          process.exit(10);
+        }
+        status(`Cloning ${this.url}...`);
+        commits = await analyzeRemoteRepo(this.url, async (tempPath) => {
+          repoName = this.url!;
+          if (!(await isGitRepo(tempPath))) {
+            error('Cloned directory is not a valid git repository');
+            process.exit(1);
+          }
+          return getCommits(tempPath, count, this.noMerges);
+        });
+      } else {
+        if (!(await isGitRepo(repoPath))) {
+          error('Not a git repository', 'Run this command inside a git repo or use --url');
+          process.exit(1);
+        }
+        commits = await getCommits(repoPath, count, this.noMerges);
+      }
+    } catch (err: any) {
+      error(err.message || 'Failed to read commits');
+      process.exit(1);
+    }
+
+    if (commits.length === 0) {
+      status('No commits found.');
+      process.exit(0);
+    }
+
+    status(`Analyzing ${commits.length} commits...`);
+
+    const results = await analyzeCommits(commits, {
+      noLlm: this.noLlm,
+      aiConfig: this.noLlm ? undefined : aiConfig,
+      providerConfig: this.noLlm ? undefined : providerConfig,
+    });
+
+    const summary = buildSummary(results, startMs);
+
+    const useJson = this.json || isPiped();
+    if (useJson) {
+      const jsonOutput = buildJsonOutput('analyze', repoName, results, summary, version);
+      this.context.stdout.write(formatJson(jsonOutput) + '\n');
+    } else {
+      renderAnalysis(results, summary);
+    }
+
+    // Exit with non-zero if there are errors
+    if (summary.errors > 0) {
+      process.exit(1);
+    }
   }
+}
+
+function buildSummary(results: import('../types/analysis').AnalysisResult[], startMs: number): AnalysisSummary {
+  const scores = results.map(r => r.score);
+  const overall = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+  const passed = results.filter(r => r.score >= 7).length;
+  const warnings = results.filter(r => r.score >= 5 && r.score < 7).length;
+  const errors = results.filter(r => r.score < 5).length;
+
+  const categoryCounts = new Map<string, number>();
+  for (const r of results) {
+    for (const issue of r.issues) {
+      categoryCounts.set(issue.category, (categoryCounts.get(issue.category) || 0) + 1);
+    }
+  }
+  const topIssues = Array.from(categoryCounts.entries())
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  return {
+    commitCount: results.length,
+    overallScore: parseFloat(overall.toFixed(1)),
+    passed,
+    warnings,
+    errors,
+    topIssues,
+    durationMs: Date.now() - startMs,
+  };
 }

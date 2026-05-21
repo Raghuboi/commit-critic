@@ -21,9 +21,13 @@
  */
 
 import { Command, Option } from 'clipanion';
+import { getStagedDiff, hasStagedChanges } from '../core/git';
+import { runWriter } from '../core/writer';
+import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
+import { error } from '../ui/output';
 
 export class WriteCommand extends Command {
-  static paths = [['write'], ['w']];
+  static paths = [['write'], ['w'], ['--write']];
   static usage = Command.Usage({
     category: 'Writing',
     description: 'Interactive commit message writer',
@@ -54,11 +58,46 @@ export class WriteCommand extends Command {
   });
 
   async execute() {
-    // TODO: Implement write logic
-    // 1. Check staged changes
-    // 2. Interactive prompts
-    // 3. LLM suggestion
-    // 4. Accept/edit/regenerate flow
-    this.context.stdout.write('Not implemented yet\n');
+    const repoPath = process.cwd();
+
+    if (!(await hasStagedChanges(repoPath))) {
+      error('No staged changes', 'Stage changes with git add before running write');
+      process.exit(1);
+    }
+
+    const aiConfig = resolveAIConfig({
+      provider: this.provider,
+      model: this.model,
+    });
+    const providerConfig = resolveProviderConfig();
+
+    if (!this.noLlm) {
+      const validationError = validateAIConfig(aiConfig);
+      if (validationError) {
+        error(validationError, 'Set the required environment variable or use --no-llm for offline mode.');
+        process.exit(3);
+      }
+    }
+
+    let diff: string;
+    try {
+      diff = await getStagedDiff(repoPath);
+    } catch (err: any) {
+      error(err.message || 'Failed to read staged diff');
+      process.exit(1);
+    }
+
+    const message = await runWriter(diff, {
+      preselectedType: this.type,
+      noLlm: this.noLlm,
+      aiConfig: this.noLlm ? undefined : aiConfig,
+      providerConfig: this.noLlm ? undefined : providerConfig,
+    });
+
+    if (message) {
+      this.context.stdout.write(message + '\n');
+    } else {
+      process.exit(0);
+    }
   }
 }

@@ -2,16 +2,13 @@
 
 AI-powered commit message critic and writer.
 
-Analyzes commit message quality with hybrid scoring (deterministic rules + LLM critique) and helps developers write better commits.
+Analyzes commit message quality with deterministic pre-filter scoring plus optional LLM critique, and helps developers write better commits.
 
 ## Install
 
 ```bash
 # Requires Bun
 bun install
-
-# Development
-bun run dev --help
 
 # Build standalone binary
 bun run compile:linux
@@ -80,6 +77,7 @@ commit-critic analyze --count 100  # Custom count
 commit-critic analyze --url <url>  # Remote repository
 commit-critic analyze --no-llm     # Deterministic scoring only
 commit-critic analyze --json       # JSON output
+commit-critic analyze --no-merges  # Exclude merge commits
 ```
 
 ### write
@@ -101,25 +99,24 @@ commit-critic doctor
 
 ## Scoring
 
-Hybrid scoring approach:
-
-- **Deterministic (60%)**: Rule-based checks for structure, conventional commits, subject quality, body quality, diff correlation
-- **LLM Semantic (40%)**: Contextual evaluation of specificity, intent, clarity, and actionability
+- **Deterministic pre-filter**: Rule-based checks for structure, conventional commits, subject quality, body quality, and diff correlation.
+- **LLM semantic**: Contextual evaluation of specificity, intent, clarity, and actionability when a provider is configured.
 
 Use `--no-llm` for deterministic-only scoring (offline-capable).
 
 ## Output
 
-- **Rich terminal**: Colored, structured output with progress bars and emoji indicators
-- **JSON**: Machine-readable output via `--json` flag or automatic when piped
+- **Rich terminal**: Colored, structured output with emoji indicators.
+- **JSON**: Machine-readable output via `--json` flag or automatic when piped.
+- **NO_COLOR**: Respects the `NO_COLOR` environment variable.
 
 ## Architecture
 
 - Bun TypeScript CLI with clipanion
-- AI SDK v6 for multi-provider LLM integration
+- AI SDK v7 for multi-provider LLM integration
 - Zod schemas for structured output validation
 - Git access via `Bun.spawn` (subprocess)
-- Hybrid scoring: deterministic + LLM
+- Deterministic + LLM scoring
 
 ## Development
 

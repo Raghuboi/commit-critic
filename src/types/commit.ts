@@ -16,6 +16,12 @@ export interface Commit {
   body: string;
   /** Author name */
   author: string;
+  /** Author email */
+  email: string;
   /** Commit date (ISO string) */
   date: string;
+  /** Unix timestamp */
+  timestamp: number;
+  /** Parent hashes (2+ = merge commit) */
+  parents: string[];
 }

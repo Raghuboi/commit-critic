@@ -11,48 +11,76 @@
  * 7. Prompt: accept, edit, regenerate, cancel
  */
 
-import prompts from 'prompts';
+import { generateCommitMessage } from './llm';
+import {
+  promptCommitType,
+  promptScope,
+  promptDescription,
+  promptAction,
+  promptEdit,
+  promptCommitConfirm,
+} from '../ui/prompts';
+import { truncateDiff } from '../utils/diff';
+import type { AIConfig, ProviderSpecificConfig } from '../types/config';
 
-/**
- * Conventional commit types.
- */
-const COMMIT_TYPES = [
-  { title: 'feat', value: 'feat' },
-  { title: 'fix', value: 'fix' },
-  { title: 'docs', value: 'docs' },
-  { title: 'style', value: 'style' },
-  { title: 'refactor', value: 'refactor' },
-  { title: 'perf', value: 'perf' },
-  { title: 'test', value: 'test' },
-  { title: 'build', value: 'build' },
-  { title: 'ci', value: 'ci' },
-  { title: 'chore', value: 'chore' },
-  { title: 'revert', value: 'revert' },
-];
+export interface WriterOptions {
+  preselectedType?: string;
+  noLlm?: boolean;
+  aiConfig?: AIConfig;
+  providerConfig?: ProviderSpecificConfig;
+}
 
 /**
  * Run interactive commit writer.
  */
-export async function runWriter(_diff: string, _preselectedType?: string): Promise<string | null> {
-  // TODO: Implement interactive prompts
-  // 1. Select commit type
-  // 2. Enter scope (optional)
-  // 3. Enter description
-  // 4. Call LLM for suggestion
-  // 5. Show suggestion
-  // 6. Accept/edit/regenerate/cancel
-  return null;
+export async function runWriter(diff: string, options: WriterOptions): Promise<string | null> {
+  const type = await promptCommitType(options.preselectedType);
+  const scope = await promptScope();
+  const description = await promptDescription();
+
+  let suggestion: string;
+  if (options.noLlm || !options.aiConfig || !options.providerConfig) {
+    suggestion = buildTemplateMessage(type, scope, description);
+  } else {
+    const truncated = truncateDiff(diff, 50000);
+    suggestion = await generateCommitMessage(truncated, type, scope, description, options.aiConfig, options.providerConfig);
+  }
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    console.log('\nSuggested commit message:\n');
+    console.log('  ' + suggestion.split('\n').join('\n  '));
+    console.log('');
+
+    const action = await promptAction();
+    if (action === 'accept') {
+      const shouldCommit = await promptCommitConfirm(suggestion);
+      if (shouldCommit) {
+        return suggestion;
+      }
+      continue;
+    }
+    if (action === 'edit') {
+      suggestion = await promptEdit(suggestion);
+      continue;
+    }
+    if (action === 'regenerate') {
+      if (options.noLlm || !options.aiConfig || !options.providerConfig) {
+        suggestion = buildTemplateMessage(type, scope, description);
+      } else {
+        const truncated = truncateDiff(diff, 50000);
+        suggestion = await generateCommitMessage(truncated, type, scope, description, options.aiConfig, options.providerConfig);
+      }
+      continue;
+    }
+    if (action === 'cancel') {
+      return null;
+    }
+  }
 }
 
-/**
- * Generate commit message suggestion from LLM.
- */
-export async function generateSuggestion(
-  _diff: string,
-  _type: string,
-  _scope?: string,
-  _description?: string
-): Promise<string> {
-  // TODO: Implement LLM call for commit message generation
-  return '';
+function buildTemplateMessage(type: string, scope?: string, description?: string): string {
+  const scopePart = scope ? `(${scope})` : '';
+  const desc = description || 'update';
+  return `${type}${scopePart}: ${desc}`;
 }

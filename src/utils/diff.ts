@@ -12,21 +12,31 @@
  *
  * Appends a notification if truncated.
  */
-export function truncateDiff(_diff: string, _maxChars: number = 50000): string {
-  // TODO: Implement
-  return _diff;
+export function truncateDiff(diff: string, maxChars: number = 50000): string {
+  if (diff.length <= maxChars) return diff;
+  const truncated = diff.slice(0, maxChars);
+  return truncated + '\n\n[diff truncated — exceeded ' + maxChars + ' chars]';
 }
 
 /**
  * Parse diff stats from git diff --stat output.
  */
-export function parseDiffStats(_statOutput: string): DiffStats {
-  // TODO: Implement
-  return {
-    filesChanged: 0,
-    insertions: 0,
-    deletions: 0,
-  };
+export function parseDiffStats(statOutput: string): DiffStats {
+  let filesChanged = 0;
+  let insertions = 0;
+  let deletions = 0;
+
+  for (const line of statOutput.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.includes('|') === false) continue;
+    filesChanged++;
+    const plusMatch = trimmed.match(/(\d+)\s*\+\+/);
+    const minusMatch = trimmed.match(/(\d+)\s*--/);
+    if (plusMatch) insertions += parseInt(plusMatch[1], 10);
+    if (minusMatch) deletions += parseInt(minusMatch[1], 10);
+  }
+
+  return { filesChanged, insertions, deletions };
 }
 
 /**
