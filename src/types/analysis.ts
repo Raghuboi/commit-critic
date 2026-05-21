@@ -20,6 +20,10 @@ export interface AnalysisResult {
   issues: Issue[];
   /** Suggestions for improvement */
   suggestions: string[];
+  /** Single best suggestion for improvement (LLM-only) */
+  suggestion?: string;
+  /** Why this commit is good (LLM-only, shown for high scores) */
+  whyGood?: string;
   /** Whether the commit follows conventional commit format */
   isConventionalCommit: boolean;
   /** Whether the commit is a merge commit */

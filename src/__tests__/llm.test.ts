@@ -90,6 +90,8 @@ describe('analyzeCommitWithLLM', () => {
         { category: 'style', severity: 'suggestion' as const, message: 'Great commit' },
       ],
       suggestions: ['Keep it up'],
+      suggestion: 'Add a body explaining why',
+      whyGood: 'Follows conventional commit format with clear scope',
     };
 
     const mockModel = createMockModel(JSON.stringify(mockResult));
@@ -105,6 +107,8 @@ describe('analyzeCommitWithLLM', () => {
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0].message).toBe('Great commit');
     expect(result.suggestions).toEqual(['Keep it up']);
+    expect(result.suggestion).toBe('Add a body explaining why');
+    expect(result.whyGood).toBe('Follows conventional commit format with clear scope');
   });
 
   test('returns result with empty issues and suggestions', async () => {

@@ -16,7 +16,14 @@ Scoring criteria:
 - 3-4: Poor — vague ("fix bug", "update"), missing type/scope
 - 5-6: Average — readable but lacks specificity or conventional format
 - 7-8: Good — clear, specific, follows conventions
-- 9-10: Excellent — precise, includes scope, body explains why, measurable impact`;
+- 9-10: Excellent — precise, includes scope, body explains why, measurable impact
+
+Output fields:
+- score: number (1-10)
+- issues: array of { category, severity, message }
+- suggestions: array of improvement strings
+- suggestion: string (optional) — the single best improvement tip, shown as "Better:"
+- whyGood: string (optional) — one-line explanation of why the commit is good, shown when score >= 7`;
 
 export const FEW_SHOT_EXAMPLES = `
 Few-shot examples:
@@ -48,7 +55,7 @@ Score: ${deterministic.score}/10
 Issues:
 ${deterministic.issues.map(i => `- [${i.severity}] ${i.message}`).join('\n') || 'None'}
 
-Provide your score, issues, and suggestions as JSON.`;
+Provide your score, issues, suggestions, optional suggestion (best tip), and optional whyGood as JSON.`;
 }
 
 /**

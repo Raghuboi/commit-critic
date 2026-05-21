@@ -69,6 +69,12 @@ export function renderCommit(result: AnalysisResult, useColor = !noColor()): voi
   for (const s of result.suggestions) {
     console.log(`   ${useColor ? pc.cyan(`Suggestion: ${s}`) : `Suggestion: ${s}`}`);
   }
+  if (result.suggestion) {
+    console.log(`   ${useColor ? pc.gray(`Better: ${result.suggestion}`) : `Better: ${result.suggestion}`}`);
+  }
+  if (result.whyGood && result.score >= 7) {
+    console.log(`   ${useColor ? pc.green(`Why it's good: ${result.whyGood}`) : `Why it's good: ${result.whyGood}`}`);
+  }
 }
 
 /**

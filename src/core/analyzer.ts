@@ -51,6 +51,8 @@ export async function analyzeCommit(
   let score = deterministic.score;
   let issues = deterministic.issues;
   let suggestions: string[] = [];
+  let suggestion: string | undefined;
+  let whyGood: string | undefined;
 
   if (!options.noLlm && options.aiConfig && options.providerConfig) {
     try {
@@ -67,6 +69,8 @@ export async function analyzeCommit(
         message: i.message,
       }));
       suggestions = llmResult.suggestions;
+      suggestion = llmResult.suggestion;
+      whyGood = llmResult.whyGood;
     } catch {
       // Fallback to deterministic score on LLM failure
       fallbackCount++;
@@ -84,6 +88,8 @@ export async function analyzeCommit(
     score,
     issues,
     suggestions,
+    suggestion,
+    whyGood,
     isConventionalCommit: isConventionalCommit(commit.subject),
     isMergeCommit: isMergeCommit(commit),
     hasBody: commit.body.trim().length > 0,

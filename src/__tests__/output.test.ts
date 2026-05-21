@@ -81,3 +81,22 @@ test('JSON stats match summary stats', () => {
   expect(json.stats.commitsWithBody).toBe(s.commitsWithBody);
   expect(json.stats.scoreDistribution).toEqual(s.scoreDistribution);
 });
+
+test('JSON output includes suggestion and whyGood fields', () => {
+  const result: AnalysisResult = {
+    hash: 'abc123def456',
+    shortHash: 'abc1234',
+    subject: 'feat: add login',
+    score: 8,
+    issues: [],
+    suggestions: [],
+    suggestion: 'Add a body explaining the motivation',
+    whyGood: 'Clear scope and imperative mood',
+    isConventionalCommit: true,
+    isMergeCommit: false,
+    hasBody: false,
+  };
+  const json = buildJsonOutput('analyze', '/repo', [result], { ...summary, commitCount: 1 }, '0.1.0');
+  expect(json.commits[0].suggestion).toBe('Add a body explaining the motivation');
+  expect(json.commits[0].whyGood).toBe('Clear scope and imperative mood');
+});

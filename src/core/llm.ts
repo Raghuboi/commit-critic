@@ -33,6 +33,8 @@ const AnalysisSchema = z.object({
     })
   ),
   suggestions: z.array(z.string()),
+  suggestion: z.string().optional(),
+  whyGood: z.string().optional(),
 });
 
 export type LLMAnalysisResult = z.infer<typeof AnalysisSchema>;

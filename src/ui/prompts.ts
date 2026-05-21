@@ -60,7 +60,8 @@ export async function promptAction(suggestion: string): Promise<{ action: 'accep
   if (trimmed === '/e') return { action: 'edit' };
   if (trimmed === '/r') return { action: 'regenerate' };
   if (trimmed === '/c') return { action: 'cancel' };
-  if (trimmed === suggestion) return { action: 'accept' };
+  if (trimmed === suggestion.trim()) return { action: 'accept' };
+  if (trimmed === '') return { action: 'accept' };
   return { action: 'accept', message: trimmed };
 }
 

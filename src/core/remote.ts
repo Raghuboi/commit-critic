@@ -12,6 +12,26 @@ import { cloneRepo } from './git';
 import { withTempDir } from '../utils/temp-dir';
 
 /**
+ * Detect the default branch of a remote repository.
+ * Uses git ls-remote to query the remote HEAD symbolic ref.
+ */
+export async function detectDefaultBranch(url: string): Promise<string | undefined> {
+  try {
+    const proc = Bun.spawn(['git', 'ls-remote', '--symref', url, 'HEAD'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const text = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) return undefined;
+    const match = text.match(/ref:\s+refs\/heads\/(\S+)/);
+    return match?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Analyze a remote repository.
  *
  * Clones to temp dir, analyzes, then cleans up.
@@ -22,7 +42,8 @@ export async function analyzeRemoteRepo<T>(
   analyzeFn: (repoPath: string) => Promise<T>
 ): Promise<T> {
   return withTempDir(async (tempDir) => {
-    await cloneRepo(url, tempDir, 50);
+    const defaultBranch = await detectDefaultBranch(url);
+    await cloneRepo(url, tempDir, 50, defaultBranch);
     return analyzeFn(tempDir);
   });
 }

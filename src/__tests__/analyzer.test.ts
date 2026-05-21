@@ -37,6 +37,37 @@ describe('analyzeCommit', () => {
     expect(typeof result.hasBody).toBe('boolean');
   });
 
+  test('preserves suggestion and whyGood from LLM result', async () => {
+    const { MockLanguageModelV4 } = await import('ai/test');
+    const mockModel = new MockLanguageModelV4({
+      doGenerate: async () => ({
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          score: 8,
+          issues: [],
+          suggestions: [],
+          suggestion: 'Add more detail to the body',
+          whyGood: 'Clear scope and imperative mood',
+        }) }],
+        finishReason: { unified: 'stop' as const, raw: 'stop' },
+        usage: {
+          inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 50, text: 50, reasoning: 0 },
+        },
+        warnings: [],
+      }),
+    });
+
+    const result = await analyzeCommit(makeCommit('feat: add caching'), {
+      noLlm: false,
+      aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: false, temperature: 0.1, maxTokens: 4096, maxRetries: 0, fallbackChain: [], __testModel: mockModel },
+      providerConfig: { openaiApiKey: 'sk-test' },
+    });
+
+    expect(result.score).toBe(8);
+    expect(result.suggestion).toBe('Add more detail to the body');
+    expect(result.whyGood).toBe('Clear scope and imperative mood');
+  });
+
   test('strict mode throws on LLM failure', async () => {
     await expect(
       analyzeCommit(makeCommit('fix: handle edge case'), {

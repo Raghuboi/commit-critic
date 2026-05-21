@@ -158,12 +158,10 @@ export async function isGitRepo(repoPath: string): Promise<boolean> {
 /**
  * Shallow clone a remote repository.
  */
-export async function cloneRepo(url: string, dest: string, depth = 50): Promise<void> {
+export async function cloneRepo(url: string, dest: string, depth = 50, branch?: string): Promise<void> {
   const args = ['git', 'clone', '--depth', String(depth), '--single-branch'];
-  // For local file:// URLs, git may clone empty repo unless branch is specified.
-  // Detect and add --branch main if it looks like a local bare repo.
-  if (url.startsWith('file://')) {
-    args.push('--branch', 'main');
+  if (branch) {
+    args.push('--branch', branch);
   }
   args.push(url, dest);
   const proc = Bun.spawn(args, {
