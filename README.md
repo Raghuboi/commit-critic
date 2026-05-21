@@ -4,6 +4,12 @@ AI-powered commit message critic and writer.
 
 Analyzes commit message quality with deterministic pre-filter scoring plus LLM-owned critique, and helps developers write better commits.
 
+## Prerequisites
+
+- [Bun](https://bun.sh) >= 1.3.9
+- [Git](https://git-scm.com) (in PATH)
+- LLM API key (OpenAI, OpenRouter, or local OpenAI-compatible provider)
+
 ## Install
 
 ```bash
@@ -46,22 +52,41 @@ export AI_PROVIDER="openai"
 export AI_MODEL="gpt-4.1"
 ```
 
-### Local Models
+### Providers
+
+#### OpenAI
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export AI_PROVIDER="openai"
+export AI_MODEL="gpt-4.1"
+```
+
+#### OpenRouter
+
+```bash
+export OPENROUTER_API_KEY="sk-or-..."
+export AI_PROVIDER="openrouter"
+export AI_MODEL="anthropic/claude-sonnet-4"
+```
+
+#### Local Models
 
 ```bash
 # LM Studio
 export AI_PROVIDER="lmstudio"
-export LM_STUDIO_BASE_URL="http://localhost:1234/v1"
+export LM_STUDIO_BASE_URL="http://localhost:1234/v1"  # optional, defaults to localhost
 export AI_MODEL="llama-3.3-70b"
 
 # Ollama
 export AI_PROVIDER="ollama"
-export OLLAMA_BASE_URL="http://localhost:11434/v1"
+export OLLAMA_BASE_URL="http://localhost:11434/v1"  # optional, defaults to localhost
 export AI_MODEL="llama3.2"
 
 # vLLM
 export AI_PROVIDER="vllm"
-export VLLM_BASE_URL="http://localhost:8000/v1"
+export VLLM_BASE_URL="http://localhost:8000/v1"  # optional, defaults to localhost
+export VLLM_API_KEY="your-api-key"  # optional, only if your vLLM instance requires auth
 export AI_MODEL="mistral-7b-instruct"
 ```
 

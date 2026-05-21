@@ -77,16 +77,6 @@ export function validateAIConfig(config: AIConfig): string | null {
     }
   }
 
-  if (config.provider === 'lmstudio' && !providerConfig.lmstudioBaseUrl) {
-    return 'Missing LM_STUDIO_BASE_URL for lmstudio provider. Set the environment variable or use --no-llm.';
-  }
-  if (config.provider === 'vllm' && !providerConfig.vllmBaseUrl) {
-    return 'Missing VLLM_BASE_URL for vllm provider. Set the environment variable or use --no-llm.';
-  }
-  if (config.provider === 'ollama' && !providerConfig.ollamaBaseUrl) {
-    return 'Missing OLLAMA_BASE_URL for ollama provider. Set the environment variable or use --no-llm.';
-  }
-
   return null;
 }
 

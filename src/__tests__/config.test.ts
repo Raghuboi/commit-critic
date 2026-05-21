@@ -52,12 +52,12 @@ test('supports fallback chain', () => {
   expect(config.fallbackChain).toEqual(['lmstudio:llama-3.3-70b', 'openai:gpt-4.1']);
 });
 
-test('validates local provider base url', () => {
+test('local provider works without explicit base url', () => {
   process.env.AI_PROVIDER = 'lmstudio';
   delete process.env.LM_STUDIO_BASE_URL;
   const config = resolveAIConfig();
   const err = validateAIConfig(config);
-  expect(err).toContain('LM_STUDIO_BASE_URL');
+  expect(err).toBeNull();
 });
 
 test('provider config resolves env vars', () => {
