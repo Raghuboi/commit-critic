@@ -4,7 +4,7 @@ AI-powered commit message critic and writer. Bun + TypeScript CLI.
 
 ## Mission
 
-Analyze commit message quality with hybrid scoring (deterministic rules + LLM critique) and help developers write better commits.
+Analyze commit message quality with AI-powered scoring (deterministic pre-filters + LLM-owned critique) and help developers write better commits.
 
 ---
 
@@ -34,7 +34,7 @@ bun run compile:linux    # Build native Linux binary
 ## Architecture
 
 - **CLI framework**: clipanion (class-based commands)
-- **AI SDK**: Vercel AI SDK v4+ (generateText, Output.object)
+- **AI SDK**: Vercel AI SDK v7 canary (generateText, Output.object)
 - **Providers**: OpenAI, OpenAI-compatible (LM Studio, vLLM, Ollama)
 - **Schema validation**: Zod
 - **Colors**: picocolors (NO_COLOR compliant)

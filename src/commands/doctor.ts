@@ -16,6 +16,7 @@ import { isGitRepo } from '../core/git';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig, maskKey } from '../config/ai-config';
 import pc from 'picocolors';
 import { noColor } from '../utils/env';
+import { EXIT_SUCCESS, EXIT_GENERAL_ERROR } from '../utils/exit-codes';
 
 export class DoctorCommand extends Command {
   static paths = [['doctor'], ['--doctor']];
@@ -85,6 +86,6 @@ export class DoctorCommand extends Command {
       this.context.stdout.write(`  OLLAMA_BASE_URL=${providerConfig.ollamaBaseUrl}\n`);
     }
 
-    process.exit(ok ? 0 : 1);
+    process.exit(ok ? EXIT_SUCCESS : EXIT_GENERAL_ERROR);
   }
 }

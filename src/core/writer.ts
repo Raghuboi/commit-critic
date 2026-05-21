@@ -74,7 +74,10 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
   }
 }
 
-function buildTemplateMessage(type: string, scope?: string, description?: string): string {
+/**
+ * Build a template commit message without LLM.
+ */
+export function buildTemplateMessage(type: string, scope?: string, description?: string): string {
   const scopePart = scope ? `(${scope})` : '';
   const desc = description || 'update';
   return `${type}${scopePart}: ${desc}`;

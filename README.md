@@ -2,7 +2,7 @@
 
 AI-powered commit message critic and writer.
 
-Analyzes commit message quality with deterministic pre-filter scoring plus optional LLM critique, and helps developers write better commits.
+Analyzes commit message quality with deterministic pre-filter scoring plus LLM-owned critique, and helps developers write better commits.
 
 ## Install
 
@@ -29,7 +29,7 @@ bun run dev write
 # JSON output for CI/CD
 bun run dev analyze --json
 
-# Deterministic scoring only (no LLM required)
+# Deterministic scoring only (offline, no LLM required)
 bun run dev analyze --no-llm
 
 # Health check
@@ -100,9 +100,9 @@ commit-critic doctor
 ## Scoring
 
 - **Deterministic pre-filter**: Rule-based checks for structure, conventional commits, subject quality, body quality, and diff correlation.
-- **LLM semantic**: Contextual evaluation of specificity, intent, clarity, and actionability when a provider is configured.
+- **LLM semantic**: Contextual evaluation of specificity, intent, clarity, and actionability. LLM owns the final score (1-10) with deterministic results provided as context.
 
-Use `--no-llm` for deterministic-only scoring (offline-capable).
+Use `--no-llm` for deterministic-only scoring when offline.
 
 ## Output
 

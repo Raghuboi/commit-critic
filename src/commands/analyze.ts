@@ -27,6 +27,7 @@ import { formatJson, buildJsonOutput, isPiped } from '../ui/json';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
 import type { AnalysisSummary } from '../types/analysis';
 import { version } from '../../package.json';
+import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR, EXIT_BAD_INPUT } from '../utils/exit-codes';
 
 export class AnalyzeCommand extends Command {
   static paths = [['analyze'], ['a'], ['--analyze']];
@@ -94,7 +95,7 @@ export class AnalyzeCommand extends Command {
       const validationError = validateAIConfig(aiConfig);
       if (validationError) {
         error(validationError, 'Set the required environment variable or use --no-llm for offline mode.');
-        process.exit(3);
+        process.exit(EXIT_AUTH_ERROR);
       }
     }
 
@@ -105,32 +106,32 @@ export class AnalyzeCommand extends Command {
       if (this.url) {
         if (!isValidRepoUrl(this.url)) {
           error('Invalid repository URL', 'Use a valid git URL (https://, git@, or file://)');
-          process.exit(10);
+          process.exit(EXIT_BAD_INPUT);
         }
         status(`Cloning ${this.url}...`);
         commits = await analyzeRemoteRepo(this.url, async (tempPath) => {
           repoName = this.url!;
           if (!(await isGitRepo(tempPath))) {
             error('Cloned directory is not a valid git repository');
-            process.exit(1);
+            process.exit(EXIT_GENERAL_ERROR);
           }
           return getCommits(tempPath, count, this.noMerges);
         });
       } else {
         if (!(await isGitRepo(repoPath))) {
           error('Not a git repository', 'Run this command inside a git repo or use --url');
-          process.exit(1);
+          process.exit(EXIT_GENERAL_ERROR);
         }
         commits = await getCommits(repoPath, count, this.noMerges);
       }
     } catch (err: any) {
       error(err.message || 'Failed to read commits');
-      process.exit(1);
+      process.exit(EXIT_GENERAL_ERROR);
     }
 
     if (commits.length === 0) {
       status('No commits found.');
-      process.exit(0);
+      process.exit(EXIT_SUCCESS);
     }
 
     status(`Analyzing ${commits.length} commits...`);
@@ -139,6 +140,7 @@ export class AnalyzeCommand extends Command {
       noLlm: this.noLlm,
       aiConfig: this.noLlm ? undefined : aiConfig,
       providerConfig: this.noLlm ? undefined : providerConfig,
+      showProgress: !this.json && !isPiped(),
     });
 
     const summary = buildSummary(results, startMs);
@@ -153,7 +155,7 @@ export class AnalyzeCommand extends Command {
 
     // Exit with non-zero if there are errors
     if (summary.errors > 0) {
-      process.exit(1);
+      process.exit(EXIT_GENERAL_ERROR);
     }
   }
 }

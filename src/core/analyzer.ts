@@ -16,6 +16,7 @@ import type { AnalysisResult } from '../types/analysis';
 import { scoreCommit, isConventionalCommit, isMergeCommit } from './scorer';
 import { analyzeCommitWithLLM } from './llm';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
+import { createProgressBar } from '../ui/progress';
 
 export interface AnalysisOptions {
   noLlm?: boolean;
@@ -24,6 +25,7 @@ export interface AnalysisOptions {
   model?: string;
   aiConfig?: AIConfig;
   providerConfig?: ProviderSpecificConfig;
+  showProgress?: boolean;
 }
 
 /**
@@ -82,9 +84,12 @@ export async function analyzeCommits(
   commits: Commit[],
   options: AnalysisOptions
 ): Promise<AnalysisResult[]> {
+  const progress = options.showProgress && commits.length > 1 ? createProgressBar('Analyzing') : null;
   const results: AnalysisResult[] = [];
-  for (const commit of commits) {
-    results.push(await analyzeCommit(commit, options));
+  for (let i = 0; i < commits.length; i++) {
+    results.push(await analyzeCommit(commits[i], options));
+    progress?.update(i + 1, commits.length);
   }
+  progress?.stop();
   return results;
 }

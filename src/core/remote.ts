@@ -31,8 +31,8 @@ export async function analyzeRemoteRepo<T>(
  * Validate a repository URL.
  */
 export function isValidRepoUrl(url: string): boolean {
-  if (url.startsWith('https://') || url.startsWith('http://')) return true;
-  if (url.startsWith('git@')) return true;
+  if (!url || url.trim().length === 0) return false;
+  if (url.startsWith('https://') || url.startsWith('git@')) return true;
   if (url.startsWith('file://')) return true;
   // Local file path
   try {

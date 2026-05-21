@@ -16,7 +16,8 @@ import { join } from 'node:path';
 const DEFAULT_CONFIG_DIR = join(homedir(), '.config', 'commit-critic');
 
 /**
- * Resolve app configuration.
+ * Resolve app-level config from env vars and defaults.
+ * @deprecated Not currently used. Retained for future use.
  */
 export function resolveAppConfig(overrides?: Partial<AppConfig>): AppConfig {
   return {

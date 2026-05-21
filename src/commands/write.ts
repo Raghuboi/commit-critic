@@ -25,6 +25,7 @@ import { getStagedDiff, hasStagedChanges } from '../core/git';
 import { runWriter } from '../core/writer';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
 import { error } from '../ui/output';
+import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR } from '../utils/exit-codes';
 
 export class WriteCommand extends Command {
   static paths = [['write'], ['w'], ['--write']];
@@ -62,7 +63,7 @@ export class WriteCommand extends Command {
 
     if (!(await hasStagedChanges(repoPath))) {
       error('No staged changes', 'Stage changes with git add before running write');
-      process.exit(1);
+      process.exit(EXIT_GENERAL_ERROR);
     }
 
     const aiConfig = resolveAIConfig({
@@ -75,7 +76,7 @@ export class WriteCommand extends Command {
       const validationError = validateAIConfig(aiConfig);
       if (validationError) {
         error(validationError, 'Set the required environment variable or use --no-llm for offline mode.');
-        process.exit(3);
+        process.exit(EXIT_AUTH_ERROR);
       }
     }
 
@@ -84,7 +85,7 @@ export class WriteCommand extends Command {
       diff = await getStagedDiff(repoPath);
     } catch (err: any) {
       error(err.message || 'Failed to read staged diff');
-      process.exit(1);
+      process.exit(EXIT_GENERAL_ERROR);
     }
 
     const message = await runWriter(diff, {
@@ -97,7 +98,7 @@ export class WriteCommand extends Command {
     if (message) {
       this.context.stdout.write(message + '\n');
     } else {
-      process.exit(0);
+      process.exit(EXIT_SUCCESS);
     }
   }
 }

@@ -20,6 +20,7 @@ export function truncateDiff(diff: string, maxChars: number = 50000): string {
 
 /**
  * Parse diff stats from git diff --stat output.
+ * @deprecated Not currently used. Retained for future use.
  */
 export function parseDiffStats(statOutput: string): DiffStats {
   let filesChanged = 0;

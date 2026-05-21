@@ -71,7 +71,8 @@ export async function promptEdit(current: string): Promise<string> {
 }
 
 /**
- * Prompt to confirm commit.
+ * Prompt user to confirm a commit message.
+ * @deprecated Not currently used. Retained for future use.
  */
 export async function promptCommitConfirm(message: string): Promise<boolean> {
   return confirm({ message: `Commit with message: "${message}"?` });

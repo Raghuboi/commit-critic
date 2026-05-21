@@ -1,28 +1,43 @@
 /**
- * Progress bar for commit analysis
+ * Terminal progress bar with 8-level block characters.
  *
- * Uses 8-level block characters for smooth progress:
- * [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█']
- * Inspired by Claude Code progress bar patterns.
+ * Respects NO_COLOR.
  */
 
-/**
- * Create a progress bar.
- */
-export function createProgressBar(_total: number): ProgressBar {
-  // TODO: Implement
-  return {
-    update: (_current: number) => {},
-    stop: () => {},
-  };
+import { noColor } from '../utils/env';
+
+const BLOCKS = [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+
+export interface ProgressBar {
+  update(current: number, total: number): void;
+  stop(): void;
 }
 
-/**
- * Progress bar interface.
- */
-export interface ProgressBar {
-  /** Update progress */
-  update(current: number): void;
-  /** Stop and clear the progress bar */
-  stop(): void;
+export function createProgressBar(label: string): ProgressBar {
+  const useColor = !noColor();
+  let currentMessage = '';
+
+  function render(current: number, total: number) {
+    const width = 30;
+    const ratio = total > 0 ? current / total : 0;
+    const filled = ratio * width;
+    const fullBlocks = Math.floor(filled);
+    const partial = Math.floor((filled - fullBlocks) * 8);
+    const bar =
+      BLOCKS[8].repeat(fullBlocks) +
+      (fullBlocks < width ? BLOCKS[partial] : '') +
+      ' '.repeat(width - fullBlocks - (partial > 0 ? 1 : 0));
+    const pct = Math.round(ratio * 100);
+    currentMessage = `${label} [${bar}] ${pct}% (${current}/${total})`;
+    process.stderr.write(`\r${useColor ? '\x1b[36m' : ''}${currentMessage}${useColor ? '\x1b[0m' : ''}`);
+  }
+
+  return {
+    update(current: number, total: number) {
+      render(current, total);
+    },
+    stop() {
+      process.stderr.write('\n');
+    },
+  };
 }

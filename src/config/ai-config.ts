@@ -12,6 +12,15 @@
 import { getEnv, getEnvBool, getEnvNumber } from '../utils/env';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
 
+const KEY_MAP: Record<string, keyof ProviderSpecificConfig> = {
+  'OPENAI_API_KEY': 'openaiApiKey',
+  'OPENROUTER_API_KEY': 'openrouterApiKey',
+  'LM_STUDIO_BASE_URL': 'lmstudioBaseUrl',
+  'VLLM_BASE_URL': 'vllmBaseUrl',
+  'VLLM_API_KEY': 'vllmApiKey',
+  'OLLAMA_BASE_URL': 'ollamaBaseUrl',
+};
+
 const PROVIDER_KEYS: Record<string, string[]> = {
   openai: ['OPENAI_API_KEY'],
   openrouter: ['OPENROUTER_API_KEY'],
@@ -62,7 +71,7 @@ export function validateAIConfig(config: AIConfig): string | null {
   const providerConfig = resolveProviderConfig();
 
   for (const key of keys) {
-    const val = providerConfig[key.toLowerCase().replace('_api_key', 'ApiKey').replace('_base_url', 'BaseUrl') as keyof ProviderSpecificConfig];
+    const val = providerConfig[KEY_MAP[key]];
     if (!val) {
       return `Missing ${key} for provider "${config.provider}". Set the environment variable or use --no-llm for offline mode.`;
     }

@@ -1,30 +1,41 @@
 /**
- * Animated spinner for long-running operations
+ * Terminal spinner with platform-aware characters.
  *
- * Unicode spinner frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
- * Inspired by Hermes Agent spinner patterns.
+ * Respects NO_COLOR.
  */
 
-/**
- * Create a spinner that shows animated status during analysis.
- */
-export function createSpinner(_message: string): Spinner {
-  // TODO: Implement
-  return {
-    start: () => {},
-    stop: () => {},
-    update: (_msg: string) => {},
-  };
+import { noColor } from '../utils/env';
+
+const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+export interface Spinner {
+  start(): void;
+  stop(): void;
+  update(message: string): void;
 }
 
-/**
- * Spinner interface.
- */
-export interface Spinner {
-  /** Start the spinner animation */
-  start(): void;
-  /** Stop the spinner animation */
-  stop(): void;
-  /** Update the spinner message */
-  update(message: string): void;
+export function createSpinner(message: string): Spinner {
+  let frame = 0;
+  let interval: ReturnType<typeof setInterval> | null = null;
+  let currentMessage = message;
+  const useColor = !noColor();
+
+  return {
+    start() {
+      if (interval) return;
+      interval = setInterval(() => {
+        const f = FRAMES[frame++ % FRAMES.length];
+        process.stderr.write(`\r${useColor ? '\x1b[36m' : ''}${f}${useColor ? '\x1b[0m' : ''} ${currentMessage}`);
+      }, 80);
+    },
+    stop() {
+      if (!interval) return;
+      clearInterval(interval);
+      interval = null;
+      process.stderr.write('\r' + ' '.repeat(currentMessage.length + 4) + '\r');
+    },
+    update(message: string) {
+      currentMessage = message;
+    },
+  };
 }

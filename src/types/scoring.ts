@@ -42,10 +42,17 @@ export interface ScoringResult {
   score: number;
   /** Issues found */
   issues: Issue[];
+  /** Whether the commit follows conventional commit format */
+  isConventionalCommit?: boolean;
+  /** Whether the commit is a merge commit */
+  isMergeCommit?: boolean;
+  /** Whether the commit has a body */
+  hasBody?: boolean;
 }
 
 /**
  * Score breakdown by category.
+ * @deprecated Not used in current scoring model. Retained for future use.
  */
 export interface ScoreBreakdown {
   structure: number;
