@@ -1,91 +1,59 @@
 # commit-critic
 
-AI-powered commit message critic and writer. Analyzes your Git commit history with an LLM to score quality, find weak messages, suggest better ones, and help you write well-formed commits interactively.
+AI-powered terminal tool for reviewing Git commit message quality and writing better commits from staged changes.
 
-## Quick Start
-
-```bash
-git clone <repo-url> commit-critic
-cd commit-critic
-bun install
-```
-
-Run directly from source (no build needed):
-
-```bash
-bun run dev analyze --no-llm     # Analyze current repo, offline mode
-bun run dev write --no-llm       # Interactive commit writer, offline mode
-bun run dev doctor               # Health check
-bun run dev setup                # Configure an LLM provider
-```
-
-Build output is optional. For a source-first challenge review, use `bun run dev ...`.
-If this package is later published to npm, the declared bin can be run with `bunx`:
-
-```bash
-bunx commit-critic analyze
-bunx commit-critic write
-```
-
-For this repository before publication, run the built file directly if you want to test the bundled CLI:
-
-```bash
-bun run build
-bun ./dist/cli.js --help
-```
+commit-critic uses an LLM by default. It reviews recent commit history, explains weak messages, scores quality, suggests stronger alternatives, and drafts commit messages from `git diff --staged`. A deterministic `--no-llm` mode is included for offline fallback, but the normal path is LLM-backed.
 
 ## What it does
 
-1. **Analyze** a repository's commit history and get per-commit scores, critiques, better examples, and aggregate statistics.
-2. **Analyze** a remote repository by URL.
-3. **Write** commit messages interactively by reading your staged diff and generating a suggestion.
-4. **Doctor** checks your setup (Git, API keys) and reports what's configured.
-
-All scoring uses an LLM by default. A deterministic offline mode (`--no-llm`) is available as a fallback.
+- Analyze the latest commits in the current Git repository.
+- Analyze a remote repository from a Git URL.
+- Critique each commit with a score, issue, better example, and aggregate stats.
+- Draft an interactive commit message from staged changes.
+- Optionally commit staged changes only after explicit confirmation.
+- Verify Git and LLM configuration with `doctor`.
+- Configure provider environment variables with `setup`.
 
 ## Requirements
 
-- [Bun](https://bun.sh) >= 1.3.9
-- [Git](https://git-scm.com) (in PATH)
-- An LLM API key (OpenAI, OpenRouter, or a local OpenAI-compatible provider)
+- Bun 1.3.9 or newer
+- Git in PATH
+- One LLM provider:
+  - OpenAI
+  - OpenRouter
+  - Any local OpenAI-compatible server, such as llama.cpp, LM Studio, vLLM, or Ollama
 
 ## Install Bun
 
-### macOS
+macOS or Linux:
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
-Or with Homebrew:
+macOS with Homebrew:
 
 ```bash
 brew tap oven-sh/bun
 brew install bun
 ```
 
-### Linux
-
-```bash
-curl -fsSL https://bun.sh/install | bash
-```
-
-Or with npm:
-
-```bash
-npm install -g bun
-```
-
-### Windows
+Windows PowerShell:
 
 ```powershell
 powershell -c "irm bun.sh/install.ps1 | iex"
 ```
 
-Or with scoop:
+Windows with Scoop:
 
 ```powershell
 scoop install bun
+```
+
+Verify Bun:
+
+```bash
+bun --version
 ```
 
 ## Install commit-critic from source
@@ -94,259 +62,370 @@ scoop install bun
 git clone <repo-url> commit-critic
 cd commit-critic
 bun install
+bun run dev --help
 ```
 
-That's it. No build step required for development.
+`bun run dev ...` runs the CLI directly from `src/cli.ts`. A build step is not required for normal development or review.
 
 ## Configure an LLM provider
 
-Copy `.env.example` to `.env` and fill in the values, or export environment variables directly.
+You can use environment variables, a `.env` file, or the setup wizard.
+
+```bash
+bun run dev setup
+bun run dev doctor
+```
+
+Default provider:
+
+```bash
+AI_PROVIDER=openai
+AI_MODEL=gpt-4.1
+```
+
+Override provider/model per command:
+
+```bash
+bun run dev analyze --provider local --model qwen3.6
+bun run dev write --provider openrouter --model anthropic/claude-sonnet-4
+```
 
 ### OpenAI
 
 ```bash
-export OPENAI_API_KEY="sk-..."
-export AI_PROVIDER="openai"
-export AI_MODEL="gpt-4.1"
+export AI_PROVIDER=openai
+export AI_MODEL=gpt-4.1
+export OPENAI_API_KEY=sk-...
 ```
+
+`AI_API_KEY` is also accepted when `AI_PROVIDER=openai`, but `OPENAI_API_KEY` is clearer.
 
 ### OpenRouter
 
 ```bash
-export OPENROUTER_API_KEY="sk-or-..."
-export AI_PROVIDER="openrouter"
-export AI_MODEL="anthropic/claude-sonnet-4"
+export AI_PROVIDER=openrouter
+export AI_MODEL=anthropic/claude-sonnet-4
+export OPENROUTER_API_KEY=sk-or-...
 ```
 
-### Local OpenAI-compatible providers
+`AI_API_KEY` is also accepted when `AI_PROVIDER=openrouter`, but `OPENROUTER_API_KEY` is clearer.
 
-**LM Studio** (default: `http://localhost:1234/v1`):
+### Local OpenAI-compatible provider
+
+Use `local` for llama.cpp, LM Studio, vLLM, Ollama, or any server that exposes OpenAI-compatible `/v1/completions` and `/v1/models` endpoints.
 
 ```bash
-export AI_PROVIDER="lmstudio"
-export AI_MODEL="llama-3.3-70b"
-# Optional: override base URL
-# export LM_STUDIO_BASE_URL="http://localhost:1234/v1"
+export AI_PROVIDER=local
+export AI_MODEL=qwen3.6
+export AI_BASE_URL=http://localhost:8081/v1
 ```
 
-**Ollama** (default: `http://localhost:11434/v1`):
+No API key is required for most local servers. If your local server requires one:
 
 ```bash
-export AI_PROVIDER="ollama"
-export AI_MODEL="llama3.2"
-# Optional: override base URL
-# export OLLAMA_BASE_URL="http://localhost:11434/v1"
+export LOCAL_API_KEY=your-local-key
 ```
 
-**vLLM**:
+Legacy provider names still work as aliases for `local`:
 
 ```bash
-export AI_PROVIDER="vllm"
-export VLLM_BASE_URL="http://localhost:8000/v1"
-export AI_MODEL="mistral-7b-instruct"
-# Optional: if your vLLM instance requires auth
-# export VLLM_API_KEY="your-api-key"
+export AI_PROVIDER=llamacpp   # alias for local, default http://localhost:8081/v1
+export AI_PROVIDER=lmstudio   # alias for local, default http://localhost:1234/v1
+export AI_PROVIDER=vllm       # alias for local, default http://localhost:8000/v1
+export AI_PROVIDER=ollama     # alias for local, default http://localhost:11434/v1
 ```
 
-**llama.cpp** (default: `http://localhost:8081/v1`):
+Prefer new configuration for fresh setups:
 
 ```bash
-export AI_PROVIDER="llamacpp"
-export AI_MODEL="local-model"
-# Optional: override base URL
-# export LLAMACPP_BASE_URL="http://localhost:8081/v1"
+AI_PROVIDER=local
+AI_MODEL=<your-model-id>
+AI_BASE_URL=<your-openai-compatible-base-url>
 ```
-
-Optional generation controls:
-
-```bash
-export AI_TEMPERATURE="0.1"
-export AI_MAX_TOKENS="4096"
-export AI_TIMEOUT_MS="60000"
-```
-
-Default provider: `openai` / `gpt-4.1`. Override with `AI_PROVIDER` and `AI_MODEL` env vars or `--provider` and `--model` flags.
-
-### Interactive setup
-
-Run `commit-critic setup` to configure a provider interactively:
-
-```bash
-bun run dev setup
-```
-
-This walks you through provider selection, API key or base URL input, and model selection, then prints the export commands to add to your shell config.
 
 ## Verify setup
-
-```bash
-bun run dev --help        # Show all commands
-bun run dev doctor        # Check git, repo, and API key status
-```
-
-## Command reference
-
-### analyze
-
-Review existing commits with AI-powered scoring.
-
-```bash
-bun run dev analyze [options]
-```
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--count <n>` | 50 | Number of commits to analyze |
-| `--url <url>` | (none) | Remote repository URL to clone and analyze |
-| `--no-llm` | false | Deterministic scoring only (offline, no API key needed) |
-| `--json` | auto | Force JSON output (auto-enabled when piped) |
-| `--provider <name>` | env | Override AI provider (`openai`, `openrouter`, `lmstudio`, `vllm`, `ollama`, `llamacpp`) |
-| `--model <name>` | env | Override model ID |
-| `--no-merges` | false | Exclude merge commits from analysis |
-| `--verbose` | false | Show detailed statistics (score distribution, top issues, etc.) |
-
-### write
-
-Interactive commit message writer based on staged changes.
-
-```bash
-bun run dev write [options]
-```
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--type <type>` | (prompt) | Pre-select commit type (`feat`, `fix`, `docs`, etc.) |
-| `--no-llm` | false | Use template only (offline, no API key needed) |
-| `--provider <name>` | env | Override AI provider |
-| `--model <name>` | env | Override model ID |
-| `--commit` | false | After accepting a message, prompt to commit staged changes |
-
-When `--commit` is used, you will be asked to confirm before any commit is created. The default is `No`. Without `--commit`, the tool only prints the suggested message.
-
-### doctor
-
-Health check for your setup.
 
 ```bash
 bun run dev doctor
 ```
 
-Checks Git availability and repository detection as critical checks. It also reports LLM provider configuration and connectivity as warnings so you can run it before or after setting API keys.
+`doctor` checks:
+
+- Git is installed.
+- The current directory is a Git repository.
+- Provider configuration is present.
+- The provider `/models` endpoint is reachable when configuration is valid.
+
+Git and repository failures are critical. Provider and connectivity failures are warnings so `doctor` remains useful while you are still setting up credentials.
+
+## Command reference
+
+### analyze
+
+Analyze commit history. Defaults to the current repository and last 50 commits.
+
+```bash
+bun run dev analyze [flags]
+```
+
+Flags:
+
+| Flag | Description |
+| --- | --- |
+| `--count <n>` | Number of commits to analyze. Default: `50`. |
+| `--url <url>` | Clone and analyze a remote repository. Supports `https://`, `git@`, `file://`, and absolute local paths. |
+| `--no-llm` | Offline deterministic scoring only. |
+| `--json` | Write JSON output. Output is also JSON when stdout is piped. |
+| `--provider <name>` | Override `AI_PROVIDER`. Supports `openai`, `openrouter`, `local`, and local aliases. |
+| `--model <id>` | Override `AI_MODEL`. |
+| `--no-merges` | Exclude merge commits. |
+| `--verbose` | Include additional diagnostic stats in human output. |
+
+Aliases:
+
+```bash
+bun run dev --analyze
+bun run dev a
+```
+
+### write
+
+Analyze staged changes and suggest a commit message.
+
+```bash
+git add <files>
+bun run dev write [flags]
+```
+
+Flags:
+
+| Flag | Description |
+| --- | --- |
+| `--type <type>` | Preselect commit type, such as `feat`, `fix`, `docs`, or `refactor`. |
+| `--no-llm` | Use a deterministic template instead of an LLM suggestion. |
+| `--provider <name>` | Override `AI_PROVIDER`. |
+| `--model <id>` | Override `AI_MODEL`. |
+| `--commit` | After accepting a message, ask whether to run `git commit`. Default answer is No. |
+
+Aliases:
+
+```bash
+bun run dev --write
+bun run dev w
+```
+
+### doctor
+
+```bash
+bun run dev doctor
+```
+
+Runs setup checks for Git, repository detection, provider configuration, and provider connectivity.
 
 ### setup
 
-Interactive provider configuration wizard.
-
 ```bash
-bun run dev setup [options]
+bun run dev setup
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--quick` | false | Exit immediately when the current provider config is valid |
-| `--non-interactive` | false | Print current config and required environment variables without prompts |
+Interactive provider wizard. It prints the environment variables you need and only writes `.env` after explicit confirmation.
 
-Walks you through selecting an LLM provider, entering credentials or base URL, and choosing a model. Prints the export commands to add to your shell config (~/.bashrc, ~/.zshrc, etc.).
+Flags:
+
+| Flag | Description |
+| --- | --- |
+| `--quick` | Exit immediately if current provider config is valid. |
+| `--non-interactive` | Print current config and missing requirements without prompts. |
 
 ## Examples
 
-### Analyze the current repository
+Analyze last 50 commits in the current repo with the configured LLM:
 
 ```bash
-# Last 50 commits (default)
 bun run dev analyze
-
-# Rubric-compatible alias
-bun run dev --analyze
-
-# Last 100 commits, offline
-bun run dev analyze --count 100 --no-llm
-
-# JSON output for scripting
-bun run dev analyze --json
 ```
 
-### Analyze a remote repository
+Analyze last 10 commits:
+
+```bash
+bun run dev analyze --count 10
+```
+
+Analyze a remote repository:
 
 ```bash
 bun run dev analyze --url https://github.com/steel-dev/steel-browser
-
-# Rubric-compatible alias
-bun run dev --analyze --url https://github.com/steel-dev/steel-browser
 ```
 
-### Interactive commit writer
+Use the top-level analysis alias:
 
 ```bash
-# Stage your changes first
-git add <files>
+bun run dev --analyze
+```
 
-# Get a suggested commit message
+Write a commit message from staged changes:
+
+```bash
+git add src README.md
 bun run dev write
+```
 
-# Rubric-compatible alias
-bun run dev --write
+Write and then optionally commit after confirmation:
 
-# Pre-select type
-bun run dev write --type feat
-
-# Write and optionally commit
+```bash
+git add src README.md
 bun run dev write --commit
 ```
 
-### Offline mode (no API key needed)
+Use the local provider for one command:
+
+```bash
+AI_PROVIDER=local AI_MODEL=qwen3.6 AI_BASE_URL=http://localhost:8081/v1 bun run dev analyze --count 3
+```
+
+Offline fallback:
 
 ```bash
 bun run dev analyze --no-llm
 bun run dev write --no-llm
 ```
 
+## Output
+
+Analysis output includes three sections:
+
+```text
+COMMITS THAT NEED WORK
+Commit: "fixed bug"
+Score: 2/10
+Issue: Too vague - which bug or behavior changed?
+Better: "fix(auth): handle expired token refresh"
+
+WELL-WRITTEN COMMITS
+Commit: "feat(api): add Redis caching for read endpoints"
+Score: 8/10
+Why it's good: Clear type, scope, and specific behavior.
+
+YOUR STATS
+Average score: 6.8/10
+Vague commits: 4 (8%)
+One-word commits: 1 (2%)
+```
+
+JSON output is stable for scripts:
+
+```bash
+bun run dev analyze --json > commit-report.json
+bun run dev analyze --no-llm | jq '.summary.overallScore'
+```
+
+## Run with bunx
+
+After the package is published or installed in another project:
+
+```bash
+bunx --bun commit-critic analyze
+bunx --bun commit-critic write
+```
+
+To smoke-test the package from a local checkout with `bunx`, install it as a file dependency in a scratch directory:
+
+```bash
+mkdir /tmp/commit-critic-smoke
+cd /tmp/commit-critic-smoke
+bun init -y
+bun add file:/absolute/path/to/commit-critic
+bunx --bun commit-critic --help
+```
+
+The package bin points at `src/cli.ts` and uses `#!/usr/bin/env bun`, so Bun can execute the TypeScript source directly.
+
+## Build and compile
+
+Bundle to JavaScript:
+
+```bash
+bun run build
+bun ./dist/cli.js --help
+```
+
+Compile a standalone binary for the current platform:
+
+```bash
+bun run compile
+./dist/commit-critic --help
+```
+
+Compile named release binaries:
+
+```bash
+bun run compile:linux
+./dist/commit-critic-linux-x64 --help
+bun run compile:mac-arm
+bun run compile:mac-intel
+bun run compile:windows
+```
+
+Compiled binaries still read the same environment variables.
+
 ## Dependencies
 
-| Package | Purpose |
-| --- | --- |
-| [TypeScript](https://www.typescriptlang.org/) | Type safety |
-| [clipanion](https://github.com/arcanis/clipanion) | CLI parsing and command routing |
-| [ai](https://github.com/vercel/ai) (Vercel AI SDK) | LLM calls and structured output |
-| [@ai-sdk/openai](https://github.com/vercel/ai) | OpenAI provider |
-| [@ai-sdk/openai-compatible](https://github.com/vercel/ai) | OpenAI-compatible providers (OpenRouter, LM Studio, vLLM, Ollama, llama.cpp) |
-| [zod](https://github.com/colinhacks/zod) | Schema validation for LLM structured output |
-| [picocolors](https://github.com/alexeyraspopov/picocolors) | Terminal colors (NO_COLOR compliant) |
-| [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js) | Interactive prompts for write mode |
+Runtime dependencies:
 
-Runtime: [Bun](https://bun.sh) >= 1.3.9. No Node.js required.
+| Dependency | Purpose |
+| --- | --- |
+| Bun | Runtime, package manager, test runner, bundler, compiler. |
+| Git | Reads commit history, staged diffs, remote repositories, and optional commits. |
+| AI SDK | LLM calls and structured/text generation. |
+| `@ai-sdk/openai` | OpenAI provider. |
+| `@ai-sdk/openai-compatible` | OpenRouter and local OpenAI-compatible providers. |
+| clipanion | Command parsing. |
+| Zod | LLM response validation. |
+| Inquirer | Interactive prompts. |
+| picocolors | Terminal color. |
+| TypeScript | Strict source typing. |
 
 ## Development
 
 ```bash
-bun install                # Install dependencies
-bun run dev --help         # Run CLI from source
-bun run typecheck          # TypeScript check (tsc --noEmit)
-bun test                   # Run test suite
-bun run build              # Build bundled JS (optional)
+bun install
+bun run typecheck
+bun test
+bun run build
 ```
 
-Build scripts are optional convenience targets:
+Recommended local LLM smoke test:
 
 ```bash
-bun run build                    # Bundle to dist/cli.js
-bun run compile:linux            # Standalone Linux binary
-bun run compile:mac-arm          # Standalone macOS ARM binary
-bun run compile:mac-intel        # Standalone macOS Intel binary
-bun run compile:windows          # Standalone Windows binary
+AI_PROVIDER=local AI_MODEL=qwen3.6 AI_BASE_URL=http://localhost:8081/v1 bun run dev doctor
+AI_PROVIDER=local AI_MODEL=qwen3.6 AI_BASE_URL=http://localhost:8081/v1 bun run dev analyze --count 1
 ```
-
-Source-first submission: `bun run src/cli.ts` runs directly. No prebuilt binaries required.
 
 ## Troubleshooting
 
-| Problem | Fix |
-| --- | --- |
-| `Missing OPENAI_API_KEY` | Set the env var or use `--no-llm` for offline mode |
-| `Not a git repository` | Run inside a git repo or use `--url` to analyze a remote |
-| `No staged changes` | Run `git add <files>` before using `write` |
-| LLM fallback used | Check your API key and network. Run `bun run dev doctor` for diagnostics |
-| JSON output mixed with status text | Status messages go to stderr, JSON goes to stdout. Pipe stdout only |
+`Missing OPENAI_API_KEY`
+
+Set `OPENAI_API_KEY`, choose another provider with `AI_PROVIDER`, or run `bun run dev setup`.
+
+`Connectivity: Unreachable`
+
+Check that the provider server is running and that the base URL includes `/v1`, for example:
+
+```bash
+AI_BASE_URL=http://localhost:8081/v1
+```
+
+`No staged changes`
+
+Run `git add <files>` before `commit-critic write`.
+
+`Not a git repository`
+
+Run the command inside a Git repository or use `analyze --url <repo-url>`.
+
+LLM output falls back to deterministic scoring
+
+Non-strict mode keeps the CLI usable when the provider returns malformed JSON or is temporarily unavailable. Set `AI_STRICT_MODE=true` if you want LLM failures to stop the command.
 
 ## License
 

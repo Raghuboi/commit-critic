@@ -1,0 +1,18 @@
+# Local agent/process files
+AGENTS.md
+src/**/AGENTS.md
+.internal/
+.hermes/
+__reports__/
+reports/
+
+# Generated artifacts
+dist/
+node_modules/
+*.tgz
+
+# Local secrets and editor state
+.env
+.DS_Store
+.vscode/
+.idea/

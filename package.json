@@ -3,13 +3,23 @@
   "version": "0.1.0",
   "description": "AI-powered commit message critic and writer",
   "type": "module",
-  "main": "./dist/cli.js",
+  "main": "./src/cli.ts",
   "bin": {
-    "commit-critic": "./dist/cli.js"
+    "commit-critic": "./src/cli.ts"
   },
+  "files": [
+    "README.md",
+    "LICENSE",
+    ".env.example",
+    "src/**/*.ts",
+    "!src/__tests__/**",
+    "!src/**/AGENTS.md"
+  ],
   "scripts": {
-    "dev": "bun run src/cli.ts",
+    "dev": "bun ./src/cli.ts",
     "build": "bun build ./src/cli.ts --outdir ./dist --target=bun --minify",
+    "compile": "bun build ./src/cli.ts --compile --outfile ./dist/commit-critic --minify",
+    "check": "bun run typecheck && bun test",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "compile:linux": "bun build ./src/cli.ts --compile --target=bun-linux-x64 --outfile ./dist/commit-critic-linux-x64 --minify",
