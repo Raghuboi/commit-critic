@@ -46,7 +46,7 @@ For OpenAI directly, you can omit `AI_BASE_URL`:
 ```bash
 export AI_PROVIDER=openai
 export AI_API_KEY=<openai-api-key>
-export AI_MODEL=gpt-4.1
+export AI_MODEL=<openai-model>
 
 bun ./src/cli.ts doctor
 bun ./src/cli.ts --analyze --count=5
@@ -193,7 +193,7 @@ Press Enter to accept, type a custom message, or /e=edit /r=regenerate /c=cancel
 bun ./src/cli.ts doctor
 ```
 
-`doctor` checks Git, repository detection, provider configuration, and provider connectivity. API keys are masked in diagnostic output.
+`doctor` checks Git, repository detection, provider configuration, and provider connectivity. Git and repository failures are hard failures; provider config and connectivity failures are warnings so `doctor` can still help you diagnose setup. API keys are masked in diagnostic output.
 
 ### Configure interactively
 
@@ -203,7 +203,7 @@ bun ./src/cli.ts setup --quick
 bun ./src/cli.ts setup --non-interactive
 ```
 
-`setup` prints the environment values commit-critic needs. It writes `.env` only after explicit confirmation and uses private file permissions.
+`setup` prints the environment values commit-critic needs. It writes `.env` only after explicit confirmation and uses private file permissions. `setup --quick` validates the current provider config and exits immediately; invalid config exits with code `3`.
 
 ## LLM configuration
 
@@ -228,7 +228,7 @@ For OpenAI's hosted API, omit `AI_BASE_URL`:
 ```bash
 export AI_PROVIDER=openai
 export AI_API_KEY=<openai-api-key>
-export AI_MODEL=gpt-4.1
+export AI_MODEL=<openai-model>
 ```
 
 `OPENAI_API_KEY` and `OPENAI_BASE_URL` also work. Provider-specific values take precedence over generic `AI_API_KEY` and `AI_BASE_URL`.
@@ -249,6 +249,8 @@ bun ./src/cli.ts --analyze --count=5
 For local servers that require auth, set `AI_API_KEY` or `LOCAL_API_KEY`.
 
 Additional provider presets are available in the CLI for common OpenAI-compatible servers (`llamacpp`, `lmstudio`, `vllm`, `ollama`, and `openrouter`), but the generic `AI_BASE_URL` path is usually enough.
+
+Advanced tuning variables: `AI_TEMPERATURE`, `AI_MAX_TOKENS`, `AI_MAX_RETRIES`, `AI_TIMEOUT_MS`, and `AI_STRICT_MODE`. Set `AI_STRICT_MODE=true` when you want LLM failures to stop analysis instead of falling back to deterministic scoring.
 
 ## Run methods
 
@@ -291,6 +293,8 @@ bun run compile:windows
 
 Compiled binaries use the same commands and environment variables as the Bun entry point.
 
+Bun compiled binaries embed the runtime. On Linux, the local standalone binary is about 85-92 MB; measure your target with `wc -c dist/commit-critic*`.
+
 ## Important flags
 
 ### Analysis flags
@@ -304,6 +308,7 @@ Compiled binaries use the same commands and environment variables as the Bun ent
 | `--no-llm` | Use deterministic scoring only |
 | `--no-merges` | Exclude merge commits |
 | `--json` | Force JSON output |
+| `--verbose` | Show detailed statistics in terminal output |
 
 ### Write flags
 
@@ -342,6 +347,9 @@ bun pm pack --dry-run
 | `0` | Success. Analysis exits 0 even when commits need work |
 | `1` | Operational error such as Git, I/O, or unexpected failure |
 | `3` | Provider auth or config error |
+| `4` | Reserved for network errors |
+| `5` | Reserved for provider client errors |
+| `6` | Reserved for provider server errors |
 | `10` | Invalid input such as bad `--count`, invalid `--type`, or no staged changes |
 
 ## Troubleshooting
@@ -364,7 +372,7 @@ For OpenAI directly:
 ```bash
 export AI_PROVIDER=openai
 export AI_API_KEY=<openai-api-key>
-export AI_MODEL=gpt-4.1
+export AI_MODEL=<openai-model>
 
 bun ./src/cli.ts doctor
 ```
