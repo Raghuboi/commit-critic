@@ -261,6 +261,11 @@ describe('generateCommitMessage', () => {
     expect(result).not.toContain('\\n');
   });
 
+  test('removes stray reasoning closing tags from text-mode commit messages', () => {
+    const message = cleanCommitMessage('docs(readme): add initial readme\n\n</think>\n</think>');
+    expect(message).toBe('docs(readme): add initial readme');
+  });
+
   test('deduplicates repeated subjects from text-mode commit messages', () => {
     const result = cleanCommitMessage('docs(readme): document local API writer smoke\n\n\n\ndocs(readme): document local API writer smoke');
 
