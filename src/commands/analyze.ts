@@ -159,10 +159,7 @@ export class AnalyzeCommand extends Command {
       renderAnalysis(results, summary, this.verbose);
     }
 
-    // Exit with non-zero if there are errors
-    if (summary.errors > 0) {
-      process.exit(EXIT_GENERAL_ERROR);
-    }
+    // Analysis completes successfully regardless of score quality
   }
 }
 

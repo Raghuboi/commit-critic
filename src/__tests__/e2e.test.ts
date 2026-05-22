@@ -61,7 +61,7 @@ test('analyze command with --no-llm works offline', async () => {
   await runGit(tempDir, ['commit', '-m', 'wip']);
 
   const { stdout, exitCode } = await runCli(['analyze', '--no-llm', '--json'], tempDir);
-  expect(exitCode).toBe(1); // errors because score < 5
+  expect(exitCode).toBe(0); // analysis succeeds even with poor score
   const json = JSON.parse(stdout);
   expect(json.commits.length).toBe(1);
   expect(json.commits[0].score).toBeLessThan(5);
