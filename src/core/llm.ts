@@ -19,22 +19,14 @@ import type { ScoringResult } from '../types/scoring';
 import { getProviderApiKey, getProviderBaseUrl, getProviderDefinition } from '../config/providers';
 import { buildAnalysisPrompt, buildWritePrompt, buildBulletsPrompt, MAX_BULLET_DIFF_CHARS } from './prompts';
 
-const DEFAULT_TIMEOUT_MS = 60_000;
-
 type GlobalWithAiSdkWarnings = typeof globalThis & { AI_SDK_LOG_WARNINGS?: boolean };
 (globalThis as GlobalWithAiSdkWarnings).AI_SDK_LOG_WARNINGS = false;
 
-async function withTimeout<T>(
-  fn: (signal: AbortSignal) => Promise<T>,
-  timeoutMs = DEFAULT_TIMEOUT_MS
-): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fn(controller.signal);
-  } finally {
-    clearTimeout(timer);
-  }
+function requestOptions(aiConfig: AIConfig) {
+  return {
+    maxRetries: aiConfig.maxRetries,
+    timeout: { totalMs: aiConfig.timeoutMs },
+  };
 }
 
 const AnalysisSchema = z.object({
@@ -149,34 +141,28 @@ export async function analyzeCommitWithLLM(
 
   if (supportsStructuredOutputs) {
     try {
-      const result = await withTimeout((signal) =>
-        generateText({
+      const result = await generateText({
           model,
           output: Output.object({ schema: AnalysisSchema }),
           prompt,
           temperature: aiConfig.temperature,
           maxOutputTokens: aiConfig.maxTokens,
-          abortSignal: signal,
-        }),
-        aiConfig.timeoutMs
-      );
+          ...requestOptions(aiConfig),
+        });
       return result.output;
     } catch (err) {
-      if (!(err instanceof NoObjectGeneratedError)) throw err;
+      if (!NoObjectGeneratedError.isInstance(err)) throw err;
       // Fall through to text mode for models that reject schema output.
     }
   }
 
-  const textResult = await withTimeout((signal) =>
-    generateText({
+  const textResult = await generateText({
       model,
       prompt: prompt + '\n\nRespond with one valid JSON object only. Do not include markdown fences, explanations, or prose outside the JSON object.',
       temperature: aiConfig.temperature,
       maxOutputTokens: aiConfig.maxTokens,
-      abortSignal: signal,
-    }),
-    aiConfig.timeoutMs
-  );
+      ...requestOptions(aiConfig),
+    });
 
   const normalized = normalizeAnalysisResult(extractJson(textResult.text));
   if (normalized) return normalized;
@@ -205,37 +191,29 @@ export async function generateCommitMessage(
 
   if (supportsStructuredOutputs) {
     try {
-      const result = await withTimeout((signal) =>
-        generateText({
+      const result = await generateText({
           model,
           output: Output.object({ schema: CommitMessageSchema }),
           prompt,
           temperature: aiConfig.temperature,
           maxOutputTokens: aiConfig.maxTokens,
-          abortSignal: signal,
-        }),
-        aiConfig.timeoutMs
-      );
+          ...requestOptions(aiConfig),
+        });
 
       const { type: t, scope: s, description: d, body: b } = result.output;
-      const scopePart = s ? `(${s})` : '';
-      const bodyPart = b ? `\n\n${b}` : '';
-      return `${t}${scopePart}: ${d}${bodyPart}`;
+      return formatStructuredCommitMessage(t, s, d, b);
     } catch (err) {
-      if (!(err instanceof NoObjectGeneratedError)) throw err;
+      if (!NoObjectGeneratedError.isInstance(err)) throw err;
     }
   }
 
-  const textResult = await withTimeout((signal) =>
-    generateText({
+  const textResult = await generateText({
       model,
       prompt: prompt + '\n\nRespond with a commit message. Follow the conventional commit format (type(scope): description). If a body is needed, include it after a blank line.',
       temperature: aiConfig.temperature,
       maxOutputTokens: aiConfig.maxTokens,
-      abortSignal: signal,
-    }),
-    aiConfig.timeoutMs
-  );
+      ...requestOptions(aiConfig),
+    });
 
   return cleanCommitMessage(textResult.text);
 }
@@ -255,16 +233,13 @@ export async function generateChangeBullets(
   if (aiConfig && providerConfig) {
     try {
       const model = getModel(aiConfig, providerConfig);
-      const result = await withTimeout((signal) =>
-        generateText({
+      const result = await generateText({
           model,
           prompt: buildBulletsPrompt(diff.slice(0, MAX_BULLET_DIFF_CHARS)),
           temperature: 0.3,
           maxOutputTokens: 300,
-          abortSignal: signal,
-        }),
-        aiConfig.timeoutMs
-      );
+          ...requestOptions(aiConfig),
+        });
       const lines = stripThinking(result.text)
         .split('\n')
         .map(l => l.trim().replace(/^[-•*]\s*/, ''))
@@ -338,6 +313,63 @@ function normalizeIssueSeverity(value: string | undefined): IssueSeverity {
   if (normalized === 'high' || normalized === 'error') return 'critical';
   if (normalized === 'low' || normalized === 'info') return 'suggestion';
   return 'warning';
+}
+
+export function formatStructuredCommitMessage(type: string, scope: string | undefined, description: string, body?: string): string {
+  const cleanType = sanitizeCommitType(type);
+  const cleanScope = sanitizeCommitScope(scope);
+  const scopePart = cleanScope ? `(${cleanScope})` : '';
+  const subjectPrefix = `${cleanType}${scopePart}:`;
+  const cleanDescription = sanitizeCommitDescription(description, subjectPrefix);
+  const subject = `${subjectPrefix} ${cleanDescription || 'update staged changes'}`;
+  const cleanBody = sanitizeCommitBody(body, subject);
+  return cleanBody ? `${subject}\n\n${cleanBody}` : subject;
+}
+
+function sanitizeCommitType(type: string): string {
+  const normalized = type.trim().toLowerCase().replace(/[^a-z]/g, '');
+  return normalized || 'chore';
+}
+
+function sanitizeCommitScope(scope: string | undefined): string | undefined {
+  const normalized = scope?.trim().replace(/^\(/, '').replace(/\)$/, '').replace(/[^a-zA-Z0-9._-]/g, '-');
+  return normalized || undefined;
+}
+
+function sanitizeCommitDescription(description: string, subjectPrefix: string): string {
+  let value = cleanCommitMessage(description).split('\n')[0]?.trim() ?? '';
+  value = stripSubjectPrefix(value, subjectPrefix).replace(/^[-–—\s]+/, '').trim();
+  return value.replace(/\.$/, '').trim();
+}
+
+function sanitizeCommitBody(body: string | undefined, subject: string): string {
+  if (!body) return '';
+  const subjectNormalized = normalizeCommitLine(subject);
+  const lines = cleanCommitMessage(body)
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => line.trimEnd());
+
+  while (lines.length > 0 && lines[0]!.trim() === '') lines.shift();
+  while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
+  while (lines.length > 0 && normalizeCommitLine(lines[0]!) === subjectNormalized) {
+    lines.shift();
+    while (lines.length > 0 && lines[0]!.trim() === '') lines.shift();
+  }
+
+  const value = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return normalizeCommitLine(value) === subjectNormalized ? '' : value;
+}
+
+function stripSubjectPrefix(value: string, subjectPrefix: string): string {
+  if (value.toLowerCase().startsWith(subjectPrefix.toLowerCase())) {
+    return value.slice(subjectPrefix.length).trim();
+  }
+  return value.replace(/^\w+(?:\([^)]+\))?!?:\s*/, '').trim();
+}
+
+function normalizeCommitLine(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 export function cleanCommitMessage(text: string): string {

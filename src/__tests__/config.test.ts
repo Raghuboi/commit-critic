@@ -3,7 +3,7 @@
  */
 
 import { test, expect, beforeEach, afterEach } from 'bun:test';
-import { resolveAIConfig, validateAIConfig, resolveProviderConfig, normalizeProvider } from '../config/ai-config';
+import { resolveAIConfig, validateAIConfig, resolveProviderConfig, normalizeProvider, maskKey } from '../config/ai-config';
 import { getProviderBaseUrl } from '../config/providers';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -27,6 +27,11 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
+});
+
+test('maskKey hides full API keys in diagnostic output', () => {
+  expect(maskKey('sk-1234567890abcdef')).toBe('sk-...cdef');
+  expect(maskKey('short')).toBe('***');
 });
 
 test('resolves AI config from env vars', () => {

@@ -54,7 +54,7 @@ describe('buildAnalysisPrompt', () => {
     });
 
     expect(prompt).toContain('- [critical] Too vague to explain the change\n- [warning] Missing outcome');
-    expect(prompt).not.toContain('\\\\n- [warning] Missing outcome');
+    expect(prompt).not.toContain('\\n- [warning] Missing outcome');
   });
 });
 

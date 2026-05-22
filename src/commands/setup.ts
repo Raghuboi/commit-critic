@@ -5,7 +5,7 @@
  */
 
 import { Command, Option } from 'clipanion';
-import { select, input, confirm } from '@inquirer/prompts';
+import { select, input, password, confirm } from '@inquirer/prompts';
 import { readFile, writeFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { resolveAIConfig, resolveProviderConfig, maskKey, validateAIConfig } from '../config/ai-config';
@@ -100,16 +100,15 @@ export class SetupCommand extends Command {
       });
       envValues.AI_BASE_URL = baseUrl;
 
-      const apiKey = await input({
+      const apiKey = await password({
         message: 'Local API key (leave blank if not required):',
-        default: '',
       });
       if (apiKey.trim()) envValues.LOCAL_API_KEY = apiKey.trim();
     } else {
       const keyName = provider === 'openai' ? 'OPENAI_API_KEY' : 'OPENROUTER_API_KEY';
-      const apiKey = await input({
+      const apiKey = await password({
         message: `API key (${keyName}):`,
-        required: true,
+        validate: (value) => value.trim().length > 0 || 'API key is required',
       });
       envValues[keyName] = apiKey;
     }
@@ -125,7 +124,7 @@ export class SetupCommand extends Command {
     stdout.write(useColor ? pc.bold('Environment values\n') : 'Environment values\n');
     stdout.write('─'.repeat(40) + '\n');
     for (const [key, value] of Object.entries(envValues)) {
-      stdout.write(`${key}=${JSON.stringify(value)}\n`);
+      stdout.write(formatEnvLineForDisplay(key, value) + '\n');
     }
     stdout.write('─'.repeat(40) + '\n');
 
@@ -138,9 +137,18 @@ export class SetupCommand extends Command {
       await updateEnvFile('.env', envValues);
       stdout.write(useColor ? pc.green('\nUpdated .env.\n') : '\nUpdated .env.\n');
     } else {
-      stdout.write('\nNo files changed. Copy the values above into your shell or .env file.\n');
+      stdout.write('\nNo files changed. Non-secret values are shown above; export API keys from your shell or rerun setup and write .env.\n');
     }
   }
+}
+
+function formatEnvLineForDisplay(key: string, value: string): string {
+  const displayValue = isSecretEnvKey(key) ? maskKey(value) : value;
+  return `${key}=${JSON.stringify(displayValue)}`;
+}
+
+function isSecretEnvKey(key: string): boolean {
+  return /(API_KEY|TOKEN|SECRET|PASSWORD)$/i.test(key);
 }
 
 async function updateEnvFile(path: string, values: Record<string, string>): Promise<void> {

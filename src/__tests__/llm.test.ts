@@ -17,6 +17,7 @@ import {
   generateCommitMessage,
   generateChangeBullets,
   extractJson,
+  formatStructuredCommitMessage,
   getProvider,
 } from '../core/llm';
 import { MockLanguageModelV4 } from 'ai/test';
@@ -257,12 +258,21 @@ describe('generateCommitMessage', () => {
     );
 
     expect(result).toBe('feat(api): add cache layer\n\n- Add Redis cache\n- Configure TTL');
-    expect(result).not.toContain('\\\\n');
+    expect(result).not.toContain('\\n');
+  });
+
+  test('drops duplicated subject lines from structured body output', () => {
+    const result = formatStructuredCommitMessage(
+      'docs',
+      'readme',
+      'docs(readme): document local API writer smoke',
+      '\n\ndocs(readme): document local API writer smoke\n'
+    );
+
+    expect(result).toBe('docs(readme): document local API writer smoke');
   });
 
 });
-
-// ── extractJson ───────────────────────────────────────────────────────────────
 
 describe('extractJson', () => {
   test('parses valid JSON with and without fences', () => {
