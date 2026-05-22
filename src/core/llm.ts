@@ -55,6 +55,16 @@ type IssueSeverity = LLMAnalysisResult['issues'][number]['severity'];
 
 const ISSUE_CATEGORIES: readonly IssueCategory[] = ['type', 'scope', 'subject', 'body', 'convention', 'specificity', 'intent', 'clarity'];
 const ISSUE_SEVERITIES: readonly IssueSeverity[] = ['critical', 'warning', 'suggestion'];
+const ISSUE_CATEGORY_KEYWORDS: Record<string, IssueCategory> = {
+  vague: 'specificity',
+  specific: 'specificity',
+  scope: 'scope',
+  body: 'body',
+  type: 'type',
+  convention: 'convention',
+  intent: 'intent',
+  subject: 'subject',
+};
 
 const NullableString = z.union([z.string(), z.null()]).optional();
 
@@ -301,14 +311,10 @@ function normalizeAnalysisResult(parsed: unknown): LLMAnalysisResult | null {
 
 function normalizeIssueCategory(value: string | undefined): IssueCategory {
   if (ISSUE_CATEGORIES.includes(value as IssueCategory)) return value as IssueCategory;
-  const normalized = value?.toLowerCase() ?? '';
-  if (normalized.includes('vague') || normalized.includes('specific')) return 'specificity';
-  if (normalized.includes('scope')) return 'scope';
-  if (normalized.includes('body')) return 'body';
-  if (normalized.includes('type')) return 'type';
-  if (normalized.includes('convention')) return 'convention';
-  if (normalized.includes('intent')) return 'intent';
-  if (normalized.includes('subject')) return 'subject';
+  const normalized = value?.toLowerCase().replace(/[^a-z]/g, '') ?? '';
+  for (const [keyword, category] of Object.entries(ISSUE_CATEGORY_KEYWORDS)) {
+    if (normalized.includes(keyword)) return category;
+  }
   return 'clarity';
 }
 
