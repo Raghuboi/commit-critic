@@ -60,6 +60,21 @@ function truncateToWordBoundary(s: string, maxLen: number): string {
 }
 
 /**
+ * Ensure subject has a conventional type prefix, but avoid duplication
+ * if subject already follows conventional format.
+ * Returns [prefix, messagePart] where prefix is '' if already conventional.
+ */
+function ensureConventionalPrefix(subject: string, type: string): [string, string] {
+  const ccMatch = subject.match(CONVENTIONAL_REGEX);
+  if (ccMatch !== null) {
+    // Already has conventional prefix - extract just the message part
+    return ['', ccMatch[3]];
+  }
+  // Not conventional - add the prefix
+  return [`${type}: `, subject];
+}
+
+/**
  * Score a commit message using deterministic rules.
  */
 export function scoreCommit(commit: Commit): ScoringResult {
@@ -86,7 +101,9 @@ export function scoreCommit(commit: Commit): ScoringResult {
       // Build contextual rewrite using derived conventional type
       const derivedType = getDerivedType(subject);
       const imperativeSubject = toImperative(subject);
-      const rewrite = `${derivedType}: ${imperativeSubject}`;
+      // Avoid double-prefixing if subject already has conventional format
+      const [, msgPart] = ensureConventionalPrefix(imperativeSubject, derivedType);
+      const rewrite = `${derivedType}: ${msgPart}`;
       issues.push({
         category: 'specificity',
         severity: 'critical',
@@ -125,20 +142,24 @@ export function scoreCommit(commit: Commit): ScoringResult {
 
   // Subject length
   if (subject.length > 72) {
+    const derivedType = getDerivedType(subject);
+    const [prefix, msgPart] = ensureConventionalPrefix(subject, derivedType);
     issues.push({
       category: 'subject',
       severity: 'warning',
       message: `Subject is ${subject.length} characters — exceeds 72 chars.`,
       suggestion: 'Keep subject <= 50 chars; move details to body.',
-      rewrite: `feat: ${truncateToWordBoundary(subject, 50)}...`,
+      rewrite: `${prefix}${truncateToWordBoundary(msgPart, 50)}...`,
     });
   } else if (subject.length > 50) {
+    const derivedType = getDerivedType(subject);
+    const [prefix, msgPart] = ensureConventionalPrefix(subject, derivedType);
     issues.push({
       category: 'subject',
       severity: 'suggestion',
       message: `Subject is ${subject.length} characters — exceeds recommended 50.`,
       suggestion: 'Try to keep subject <= 50 chars.',
-      rewrite: `feat: ${truncateToWordBoundary(subject, 50)}...`,
+      rewrite: `${prefix}${truncateToWordBoundary(msgPart, 50)}...`,
     });
   } else if (subject.length < 5) {
     issues.push({

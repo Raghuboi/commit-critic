@@ -7,7 +7,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const CLI_PATH = join(process.cwd(), 'dist/cli.js');
+const CLI_PATH = join(process.cwd(), 'src/cli.ts');
 
 async function runCli(args: string[], cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const proc = Bun.spawn(['bun', CLI_PATH, ...args], {

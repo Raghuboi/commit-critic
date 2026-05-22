@@ -76,6 +76,10 @@ export class AnalyzeCommand extends Command {
     description: 'Exclude merge commits from analysis',
   });
 
+  verbose = Option.Boolean('--verbose', false, {
+    description: 'Show detailed statistics',
+  });
+
   async execute() {
     const startMs = Date.now();
     const repoPath = process.cwd();
@@ -151,7 +155,7 @@ export class AnalyzeCommand extends Command {
       const jsonOutput = buildJsonOutput('analyze', repoName, results, summary, version);
       this.context.stdout.write(formatJson(jsonOutput) + '\n');
     } else {
-      renderAnalysis(results, summary);
+      renderAnalysis(results, summary, this.verbose);
     }
 
     // Exit with non-zero if there are errors

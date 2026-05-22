@@ -2,6 +2,30 @@
 
 AI-powered commit message critic and writer. Analyzes your Git commit history with an LLM to score quality, find weak messages, suggest better ones, and help you write well-formed commits interactively.
 
+## Quick Start
+
+```bash
+git clone <repo-url> commit-critic
+cd commit-critic
+bun install
+```
+
+Run directly from source (no build needed):
+
+```bash
+bun run dev analyze --no-llm     # Analyze current repo, offline mode
+bun run dev write --no-llm       # Interactive commit writer, offline mode
+bun run dev doctor               # Health check
+bun run dev setup                # Configure an LLM provider
+```
+
+Or build and use as a global CLI:
+
+```bash
+bun run build                    # Bundle to dist/cli.js
+bunx commit-critic analyze       # Run via bunx from the built output
+```
+
 ## What it does
 
 1. **Analyze** a repository's commit history and get per-commit scores, critiques, better examples, and aggregate statistics.
@@ -116,7 +140,26 @@ export AI_MODEL="mistral-7b-instruct"
 # export VLLM_API_KEY="your-api-key"
 ```
 
+**llama.cpp** (default: `http://localhost:8081/v1`):
+
+```bash
+export AI_PROVIDER="llamacpp"
+export AI_MODEL="qwen3.6"
+# Optional: override base URL
+# export LLAMACPP_BASE_URL="http://localhost:8081/v1"
+```
+
 Default provider: `openai` / `gpt-4.1`. Override with `AI_PROVIDER` and `AI_MODEL` env vars or `--provider` and `--model` flags.
+
+### Interactive setup
+
+Run `commit-critic setup` to configure a provider interactively:
+
+```bash
+bun run dev setup
+```
+
+This walks you through provider selection, API key or base URL input, and model selection, then prints the export commands to add to your shell config.
 
 ## Verify setup
 
@@ -141,9 +184,10 @@ bun run dev analyze [options]
 | `--url <url>` | (none) | Remote repository URL to clone and analyze |
 | `--no-llm` | false | Deterministic scoring only (offline, no API key needed) |
 | `--json` | auto | Force JSON output (auto-enabled when piped) |
-| `--provider <name>` | env | Override AI provider (`openai`, `openrouter`, `lmstudio`, `vllm`, `ollama`) |
-| `--model <name>` | env | Override model ID |
-| `--no-merges` | false | Exclude merge commits from analysis |
+|| `--provider <name>` | env | Override AI provider (`openai`, `openrouter`, `lmstudio`, `vllm`, `ollama`, `llamacpp`) |
+|| `--model <name>` | env | Override model ID |
+|| `--no-merges` | false | Exclude merge commits from analysis |
+|| `--verbose` | false | Show detailed statistics (score distribution, top issues, etc.) |
 
 ### write
 
@@ -171,7 +215,17 @@ Health check for your setup.
 bun run dev doctor
 ```
 
-Checks Git availability, repository detection, and LLM provider configuration.
+Checks Git availability, repository detection, LLM provider configuration, and provider connectivity.
+
+### setup
+
+Interactive provider configuration wizard.
+
+```bash
+bun run dev setup
+```
+
+Walks you through selecting an LLM provider, entering credentials or base URL, and choosing a model. Prints the export commands to add to your shell config (~/.bashrc, ~/.zshrc, etc.).
 
 ## Examples
 

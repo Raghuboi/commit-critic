@@ -20,7 +20,7 @@ function c(enabled: boolean, fn: (s: string) => string, text: string): string {
 /**
  * Render analysis results to terminal.
  */
-export function renderAnalysis(results: AnalysisResult[], summary: AnalysisSummary): void {
+export function renderAnalysis(results: AnalysisResult[], summary: AnalysisSummary, verbose = false): void {
   const useColor = !noColor();
   const needsWork = results.filter(r => r.score < 7);
   const good = results.filter(r => r.score >= 7);
@@ -41,7 +41,7 @@ export function renderAnalysis(results: AnalysisResult[], summary: AnalysisSumma
     for (const r of good) renderCommit(r, useColor);
   }
 
-  renderSummary(summary, useColor);
+  renderSummary(summary, useColor, verbose);
 }
 
 /**
@@ -49,7 +49,7 @@ export function renderAnalysis(results: AnalysisResult[], summary: AnalysisSumma
  */
 export function renderCommit(result: AnalysisResult, useColor = !noColor()): void {
   const scoreColor = result.score >= 7 ? pc.green : result.score >= 5 ? pc.yellow : pc.red;
-  console.log(`\nCommit: "${result.subject}" (${result.shortHash})`);
+  console.log(`\nCommit: "${result.subject}"`);
   console.log(`Score: ${useColor ? scoreColor(String(result.score)) : result.score}/10`);
 
   const isGood = result.score >= 7;
@@ -102,30 +102,37 @@ function buildDeterministicWhyGood(result: AnalysisResult): string | undefined {
 /**
  * Render analysis summary.
  */
-export function renderSummary(summary: AnalysisSummary, useColor = !noColor()): void {
+export function renderSummary(summary: AnalysisSummary, useColor = !noColor(), verbose = false): void {
   const line = c(useColor, pc.gray, '━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   const total = summary.commitCount || 1;
   console.log(`\n${line}`);
   console.log(c(useColor, pc.blue, '📊 YOUR STATS'));
   console.log(line);
   console.log(`Average score: ${summary.overallScore.toFixed(1)}/10`);
-  console.log(`Passed: ${summary.passed} | Warnings: ${summary.warnings} | Errors: ${summary.errors}`);
+
+  if (verbose) {
+    console.log(`Passed: ${summary.passed} | Warnings: ${summary.warnings} | Errors: ${summary.errors}`);
+  }
+
   console.log(`Vague commits: ${summary.vagueCommits} (${Math.round((summary.vagueCommits / total) * 100)}%)`);
   console.log(`One-word commits: ${summary.oneWordCommits} (${Math.round((summary.oneWordCommits / total) * 100)}%)`);
-  console.log(`Conventional commits: ${summary.conventionalCommits} (${Math.round((summary.conventionalCommits / total) * 100)}%)`);
-  console.log(`Commits with body: ${summary.commitsWithBody} (${Math.round((summary.commitsWithBody / total) * 100)}%)`);
-  const d = summary.scoreDistribution;
-  console.log(`Score distribution: ${d.excellent} excellent | ${d.good} good | ${d.average} average | ${d.poor} poor | ${d.terrible} terrible`);
-  if (summary.llmFallbackCount > 0) {
-    console.log(`LLM fallback used for ${summary.llmFallbackCount} commit${summary.llmFallbackCount > 1 ? 's' : ''} (deterministic scoring)`);
-  }
-  if (summary.topIssues.length > 0) {
-    console.log('\nTop issues:');
-    for (const issue of summary.topIssues.slice(0, 5)) {
-      console.log(`  • ${issue.category}: ${issue.count}`);
+
+  if (verbose) {
+    console.log(`Conventional commits: ${summary.conventionalCommits} (${Math.round((summary.conventionalCommits / total) * 100)}%)`);
+    console.log(`Commits with body: ${summary.commitsWithBody} (${Math.round((summary.commitsWithBody / total) * 100)}%)`);
+    const d = summary.scoreDistribution;
+    console.log(`Score distribution: ${d.excellent} excellent | ${d.good} good | ${d.average} average | ${d.poor} poor | ${d.terrible} terrible`);
+    if (summary.llmFallbackCount > 0) {
+      console.log(`LLM fallback used for ${summary.llmFallbackCount} commit${summary.llmFallbackCount > 1 ? 's' : ''} (deterministic scoring)`);
     }
+    if (summary.topIssues.length > 0) {
+      console.log('\nTop issues:');
+      for (const issue of summary.topIssues.slice(0, 5)) {
+        console.log(`  • ${issue.category}: ${issue.count}`);
+      }
+    }
+    console.log(`\nAnalyzed ${summary.commitCount} commits in ${summary.durationMs}ms`);
   }
-  console.log(`\nAnalyzed ${summary.commitCount} commits in ${summary.durationMs}ms`);
 }
 
 /**

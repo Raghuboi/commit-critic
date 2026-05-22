@@ -17,6 +17,43 @@ import { resolveAIConfig, validateAIConfig, resolveProviderConfig, maskKey } fro
 import pc from 'picocolors';
 import { noColor } from '../utils/env';
 import { EXIT_SUCCESS, EXIT_GENERAL_ERROR } from '../utils/exit-codes';
+import type { AIProvider } from '../types/config';
+
+/**
+ * Get the base URL for a given provider.
+ */
+function getBaseUrl(provider: AIProvider, config: ReturnType<typeof resolveProviderConfig>): string {
+  switch (provider) {
+    case 'openai':
+      return 'https://api.openai.com/v1';
+    case 'openrouter':
+      return 'https://openrouter.ai/api/v1';
+    case 'lmstudio':
+      return config.lmstudioBaseUrl ?? 'http://localhost:1234';
+    case 'vllm':
+      return config.vllmBaseUrl ?? 'http://localhost:8000';
+    case 'ollama':
+      return config.ollamaBaseUrl ?? 'http://localhost:11434';
+    default:
+      return 'http://localhost:8000';
+  }
+}
+
+/**
+ * Get the API key for a given provider.
+ */
+function getApiKey(provider: AIProvider, config: ReturnType<typeof resolveProviderConfig>): string | undefined {
+  switch (provider) {
+    case 'openai':
+      return config.openaiApiKey;
+    case 'openrouter':
+      return config.openrouterApiKey;
+    case 'vllm':
+      return config.vllmApiKey;
+    default:
+      return undefined;
+  }
+}
 
 export class DoctorCommand extends Command {
   static paths = [['doctor'], ['--doctor']];
@@ -84,6 +121,26 @@ export class DoctorCommand extends Command {
     }
     if (providerConfig.ollamaBaseUrl) {
       this.context.stdout.write(`  OLLAMA_BASE_URL=${providerConfig.ollamaBaseUrl}\n`);
+    }
+
+    // Connectivity check
+    if (!validationError) {
+      try {
+        const baseUrl = getBaseUrl(aiConfig.provider, providerConfig);
+        const headers: Record<string, string> = {};
+        const apiKey = getApiKey(aiConfig.provider, providerConfig);
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const start = Date.now();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const resp = await fetch(`${baseUrl}/models`, { headers, signal: controller.signal });
+        clearTimeout(timer);
+        const ms = Date.now() - start;
+        check('Connectivity', resp.ok, `${baseUrl} (${ms}ms)`, resp.ok ? undefined : `Server returned ${resp.status}`);
+      } catch {
+        check('Connectivity', false, 'Unreachable', 'Check that the server is running and the base URL is correct');
+      }
     }
 
     process.exit(ok ? EXIT_SUCCESS : EXIT_GENERAL_ERROR);

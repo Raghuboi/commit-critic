@@ -11,10 +11,14 @@
  *   commit-critic doctor [options]
  */
 
+// Suppress AI SDK warnings (structured output unsupported by local providers)
+process.env.AI_SDK_LOG_WARNINGS = 'false';
+
 import { Cli, Builtins } from 'clipanion';
 import { AnalyzeCommand } from './commands/analyze';
 import { WriteCommand } from './commands/write';
 import { DoctorCommand } from './commands/doctor';
+import { SetupCommand } from './commands/setup';
 
 const cli = new Cli({
   binaryName: 'commit-critic',
@@ -25,6 +29,7 @@ const cli = new Cli({
 cli.register(AnalyzeCommand);
 cli.register(WriteCommand);
 cli.register(DoctorCommand);
+cli.register(SetupCommand);
 cli.register(Builtins.HelpCommand);
 cli.register(Builtins.VersionCommand);
 

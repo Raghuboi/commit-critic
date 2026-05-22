@@ -3,7 +3,7 @@
  *
  * Multi-provider support:
  * - OpenAI (@ai-sdk/openai)
- * - OpenRouter / LM Studio / vLLM / Ollama (@ai-sdk/openai-compatible)
+ * - OpenRouter / LM Studio / vLLM / Ollama / LlamaCPP (@ai-sdk/openai-compatible)
  *
  * Structured output strategy:
  * - Primary: generateText with output: object (Zod schemas)
@@ -12,6 +12,9 @@
  * Local model handling:
  * - NoObjectGeneratedError caught and falls back to text mode
  * - Manual JSON extraction strips markdown code fences
+ *
+ * Timeout:
+ * - All generateText calls are wrapped with a 60s AbortController timeout
  */
 
 import { generateText, NoObjectGeneratedError, Output } from 'ai';
@@ -22,6 +25,24 @@ import type { AIConfig, ProviderSpecificConfig } from '../types/config';
 import type { Commit } from '../types/commit';
 import type { ScoringResult } from '../types/scoring';
 import { buildAnalysisPrompt, buildWritePrompt } from './prompts';
+
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * Wrap generateText with an AbortController timeout.
+ */
+async function withTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fn(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const AnalysisSchema = z.object({
   score: z.number().min(1).max(10),
@@ -79,6 +100,14 @@ export function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecific
         supportsStructuredOutputs: false,
       });
     }
+    case 'llamacpp': {
+      return createOpenAICompatible({
+        name: 'llamacpp',
+        baseURL: providerConfig.llamacppBaseUrl ?? 'http://localhost:8081/v1',
+        apiKey: 'not-required',
+        supportsStructuredOutputs: false,
+      });
+    }
     default: {
       return createOpenAICompatible({
         name: aiConfig.provider,
@@ -101,31 +130,45 @@ export async function analyzeCommitWithLLM(
   const model: ReturnType<typeof getProvider> extends (model: string) => infer R ? R : never = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
   const prompt = buildAnalysisPrompt(commit, deterministic);
 
-  try {
-    const result = await generateText({
-      model,
-      output: Output.object({ schema: AnalysisSchema }),
-      prompt,
-      temperature: aiConfig.temperature,
-      maxOutputTokens: aiConfig.maxTokens,
-    });
-    return result.output;
-  } catch (err) {
-    if (err instanceof NoObjectGeneratedError) {
-      const result = await generateText({
-        model,
-        prompt: prompt + '\n\nRespond with valid JSON only.',
-        temperature: aiConfig.temperature,
-        maxOutputTokens: aiConfig.maxTokens,
-      });
-      const parsed = extractJson(result.text);
-      if (parsed) {
-        const validated = AnalysisSchema.safeParse(parsed);
-        if (validated.success) return validated.data;
-      }
+  // Local providers (lmstudio, vllm, ollama, llamacpp) don't support structured outputs.
+  // Skip directly to text mode to avoid wasted tokens on structured output attempt.
+  const isLocalProvider = ['lmstudio', 'vllm', 'ollama', 'llamacpp'].includes(aiConfig.provider);
+
+  if (!isLocalProvider) {
+    try {
+      const result = await withTimeout((signal) =>
+        generateText({
+          model,
+          output: Output.object({ schema: AnalysisSchema }),
+          prompt,
+          temperature: aiConfig.temperature,
+          maxOutputTokens: aiConfig.maxTokens,
+          abortSignal: signal,
+        })
+      );
+      return result.output;
+    } catch (err) {
+      if (!(err instanceof NoObjectGeneratedError)) throw err;
+      // Fall through to text mode
     }
-    throw err;
   }
+
+  // Text mode: higher token budget for reasoning models
+  const textResult = await withTimeout((signal) =>
+    generateText({
+      model,
+      prompt: prompt + '\n\nRespond with valid JSON only. No markdown code fences, no explanation text.',
+      temperature: aiConfig.temperature,
+      maxOutputTokens: Math.max(aiConfig.maxTokens, 4096),
+      abortSignal: signal,
+    })
+  );
+  const parsed = extractJson(textResult.text);
+  if (parsed) {
+    const validated = AnalysisSchema.safeParse(parsed);
+    if (validated.success) return validated.data;
+  }
+  throw new Error('Failed to parse LLM response as JSON');
 }
 
 /**
@@ -142,12 +185,15 @@ export async function generateCommitMessage(
   const model: ReturnType<typeof getProvider> extends (model: string) => infer R ? R : never = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
   const prompt = buildWritePrompt(diff, type, scope, description);
 
-  const result = await generateText({
-    model,
-    prompt,
-    temperature: aiConfig.temperature,
-    maxOutputTokens: aiConfig.maxTokens,
-  });
+  const result = await withTimeout((signal) =>
+    generateText({
+      model,
+      prompt,
+      temperature: aiConfig.temperature,
+      maxOutputTokens: aiConfig.maxTokens,
+      abortSignal: signal,
+    })
+  );
 
   return result.text.trim();
 }
@@ -182,12 +228,15 @@ export async function generateChangeBullets(
   if (aiConfig && providerConfig) {
     try {
       const model: ReturnType<typeof getProvider> extends (model: string) => infer R ? R : never = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
-      const result = await generateText({
-        model,
-        prompt: `Given the following git diff, generate 3-5 concise semantic bullets summarizing the changes. Each bullet should be one short sentence.\n\n${diff.slice(0, 8000)}`,
-        temperature: 0.3,
-        maxOutputTokens: 300,
-      });
+      const result = await withTimeout((signal) =>
+        generateText({
+          model,
+          prompt: `Given the following git diff, generate 3-5 concise semantic bullets summarizing the changes. Each bullet should be one short sentence.\n\n${diff.slice(0, 8000)}`,
+          temperature: 0.3,
+          maxOutputTokens: 300,
+          abortSignal: signal,
+        })
+      );
       const lines = result.text
         .split('\n')
         .map(l => l.trim().replace(/^[-•*]\s*/, ''))

@@ -6,13 +6,13 @@
  * 2. AI_PROVIDER env var
  * 3. Default: openai
  *
- * Supports: openai, openrouter, lmstudio, vllm, ollama
+ * Supports: openai, openrouter, lmstudio, vllm, ollama, llamacpp
  */
 
 import { getEnv, getEnvBool, getEnvNumber } from '../utils/env';
 import type { AIConfig, AIProvider, ProviderSpecificConfig } from '../types/config';
 
-const VALID_PROVIDERS: Set<string> = new Set(['openai', 'openrouter', 'lmstudio', 'vllm', 'ollama']);
+const VALID_PROVIDERS: Set<string> = new Set(['openai', 'openrouter', 'lmstudio', 'vllm', 'ollama', 'llamacpp']);
 
 const KEY_MAP: Record<string, keyof ProviderSpecificConfig> = {
   'OPENAI_API_KEY': 'openaiApiKey',
@@ -21,14 +21,16 @@ const KEY_MAP: Record<string, keyof ProviderSpecificConfig> = {
   'VLLM_BASE_URL': 'vllmBaseUrl',
   'VLLM_API_KEY': 'vllmApiKey',
   'OLLAMA_BASE_URL': 'ollamaBaseUrl',
+  'LLAMACPP_BASE_URL': 'llamacppBaseUrl',
 };
 
 const PROVIDER_KEYS: Record<string, string[]> = {
   openai: ['OPENAI_API_KEY'],
   openrouter: ['OPENROUTER_API_KEY'],
   lmstudio: [],
-  vllm: ['VLLM_API_KEY'],
+  vllm: [],
   ollama: [],
+  llamacpp: [],
 };
 
 /**
@@ -60,6 +62,7 @@ export function resolveProviderConfig(): ProviderSpecificConfig {
     vllmBaseUrl: getEnv('VLLM_BASE_URL'),
     vllmApiKey: getEnv('VLLM_API_KEY'),
     ollamaBaseUrl: getEnv('OLLAMA_BASE_URL'),
+    llamacppBaseUrl: getEnv('LLAMACPP_BASE_URL'),
   };
 }
 

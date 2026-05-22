@@ -5,7 +5,7 @@
 /**
  * Supported AI providers.
  */
-export type AIProvider = 'openai' | 'openrouter' | 'lmstudio' | 'vllm' | 'ollama';
+export type AIProvider = 'openai' | 'openrouter' | 'lmstudio' | 'vllm' | 'ollama' | 'llamacpp';
 
 /**
  * AI provider configuration.
@@ -41,4 +41,5 @@ export interface ProviderSpecificConfig {
   vllmBaseUrl?: string;
   vllmApiKey?: string;
   ollamaBaseUrl?: string;
+  llamacppBaseUrl?: string;
 }
