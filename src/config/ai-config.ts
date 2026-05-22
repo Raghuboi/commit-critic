@@ -10,7 +10,6 @@
 import { getEnv, getEnvBool, getEnvNumber } from '../utils/env';
 import type { AIConfig, AIProvider, ProviderSpecificConfig } from '../types/config';
 import {
-  getLocalBaseUrlEnvVars,
   getProviderApiKey,
   getProviderDefinition,
   getRequiredProviderEnvVars,
@@ -47,12 +46,11 @@ export function resolveProviderConfig(providerName = getEnv('AI_PROVIDER', 'open
   const provider = normalizeProvider(providerName);
   const definition = getProviderDefinition(provider);
   const providerBaseUrl = definition.baseUrlEnv ? getEnv(definition.baseUrlEnv) : undefined;
-  const legacyBaseUrl = getLocalBaseUrlEnvVars().map((key) => getEnv(key)).find(Boolean);
 
   return {
     openaiApiKey: getEnv('OPENAI_API_KEY') ?? (provider === 'openai' ? getEnv('AI_API_KEY') : undefined),
     openrouterApiKey: getEnv('OPENROUTER_API_KEY') ?? (provider === 'openrouter' ? getEnv('AI_API_KEY') : undefined),
-    localBaseUrl: getEnv('AI_BASE_URL') ?? getEnv('LOCAL_BASE_URL') ?? providerBaseUrl ?? legacyBaseUrl ?? definition.defaultBaseUrl,
+    localBaseUrl: providerBaseUrl ?? getEnv('AI_BASE_URL') ?? definition.defaultBaseUrl,
     localApiKey: getEnv('LOCAL_API_KEY') ?? (isLocalProvider(provider) ? getEnv('AI_API_KEY') : undefined) ?? getEnv('VLLM_API_KEY'),
   };
 }

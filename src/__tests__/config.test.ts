@@ -123,3 +123,46 @@ test('unknown provider falls back to openai', () => {
   expect(normalizeProvider('unknown-provider')).toBe('openai');
   expect(resolveAIConfig({ provider: 'unknown-provider' }).provider).toBe('openai');
 });
+
+test('provider-specific base URL overrides AI_BASE_URL when both are present', () => {
+  process.env.AI_PROVIDER = 'llamacpp';
+  process.env.AI_BASE_URL = 'http://localhost:9999/v1';
+  process.env.LLAMACPP_BASE_URL = 'http://localhost:8081/v1';
+
+  const config = resolveAIConfig();
+  const provider = resolveProviderConfig(config.provider);
+
+  expect(provider.localBaseUrl).toBe('http://localhost:8081/v1');
+});
+
+test('AI_BASE_URL canonical for generic local provider; LOCAL_BASE_URL is backwards-compatible fallback', () => {
+  process.env.AI_PROVIDER = 'local';
+  process.env.LOCAL_BASE_URL = 'http://localhost:8081/v1';
+
+  const config = resolveAIConfig();
+  const provider = resolveProviderConfig(config.provider);
+
+  expect(provider.localBaseUrl).toBe('http://localhost:8081/v1');
+});
+
+test('LOCAL_BASE_URL does not leak to other local presets', () => {
+  process.env.AI_PROVIDER = 'llamacpp';
+  process.env.LOCAL_BASE_URL = 'http://localhost:9999/v1';
+  process.env.LLAMACPP_BASE_URL = 'http://localhost:8081/v1';
+
+  const config = resolveAIConfig();
+  const provider = resolveProviderConfig(config.provider);
+
+  expect(provider.localBaseUrl).toBe('http://localhost:8081/v1');
+});
+
+test('provider-specific base URL vars still work and are not overridden by other preset vars', () => {
+  process.env.AI_PROVIDER = 'vllm';
+  process.env.LOCAL_BASE_URL = 'http://localhost:9999/v1';
+  process.env.VLLM_BASE_URL = 'http://localhost:8000/v1';
+
+  const config = resolveAIConfig();
+  const provider = resolveProviderConfig(config.provider);
+
+  expect(provider.localBaseUrl).toBe('http://localhost:8000/v1');
+});
