@@ -325,7 +325,10 @@ export function extractJson(text: string): unknown | null {
 }
 
 function stripThinking(text: string): string {
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .trim();
 }
 
 function tryParseJson(text: string): unknown | null {

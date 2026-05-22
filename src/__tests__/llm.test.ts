@@ -318,4 +318,16 @@ describe('generateChangeBullets', () => {
     expect(bullets.length).toBeGreaterThanOrEqual(2);
     expect(bullets).toContain('Refactored authentication middleware');
   });
+
+  test('falls back when local model returns only unterminated thinking text', async () => {
+    const files = [{ status: 'M', path: 'README.md' }];
+    const mockModel = createMockModel('<think>\nI need to inspect the diff and reason through the changes');
+    const bullets = await generateChangeBullets(
+      'diff content',
+      files,
+      { ...mockAIConfig, __testModel: mockModel },
+      mockProviderConfig
+    );
+    expect(bullets).toEqual(['Modified 1 file']);
+  });
 });
