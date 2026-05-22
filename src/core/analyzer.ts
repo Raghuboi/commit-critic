@@ -16,8 +16,6 @@ import type { AnalysisResult } from '../types/analysis';
 import { scoreCommit, isConventionalCommit, isMergeCommit } from './scorer';
 import { analyzeCommitWithLLM } from './llm';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
-import { createProgressBar } from '../ui/progress';
-import { warn } from '../ui/output';
 
 export interface AnalysisOptions {
   noLlm?: boolean;
@@ -26,7 +24,8 @@ export interface AnalysisOptions {
   model?: string;
   aiConfig?: AIConfig;
   providerConfig?: ProviderSpecificConfig;
-  showProgress?: boolean;
+  onProgress?: (completed: number, total: number) => void;
+  onWarning?: (message: string) => void;
 }
 
 export interface AnalyzeCommitOutput {
@@ -71,7 +70,7 @@ export async function analyzeCommit(
     } catch (err) {
       // Fallback to deterministic score on LLM failure
       usedFallback = true;
-      warn('LLM unavailable — using deterministic scoring. Check your API key and network connection.');
+      options.onWarning?.('LLM unavailable — using deterministic scoring. Check your API key and network connection.');
       if (options.strict) {
         const message = err instanceof Error ? err.message : String(err);
         throw new Error(`LLM analysis failed and strict mode is enabled: ${message}`);
@@ -103,15 +102,13 @@ export async function analyzeCommits(
   commits: Commit[],
   options: AnalysisOptions
 ): Promise<{ results: AnalysisResult[]; fallbackCount: number }> {
-  const progress = options.showProgress && commits.length > 1 ? createProgressBar('Analyzing') : null;
   const results: AnalysisResult[] = [];
   let fallbackCount = 0;
   for (let i = 0; i < commits.length; i++) {
     const { result, usedFallback } = await analyzeCommit(commits[i], options);
     if (usedFallback) fallbackCount++;
     results.push(result);
-    progress?.update(i + 1, commits.length);
+    options.onProgress?.(i + 1, commits.length);
   }
-  progress?.stop();
   return { results, fallbackCount };
 }

@@ -22,7 +22,8 @@ import { Command, Option } from 'clipanion';
 import { getCommits, isGitRepo } from '../core/git';
 import { analyzeCommits } from '../core/analyzer';
 import { analyzeRemoteRepo, isValidRepoUrl } from '../core/remote';
-import { renderAnalysis, status, error } from '../ui/output';
+import { renderAnalysis, status, error, warn } from '../ui/output';
+import { createProgressBar } from '../ui/progress';
 import { formatJson, buildJsonOutput, isPiped } from '../ui/json';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
 import type { AIConfig } from '../types/config';
@@ -142,13 +143,16 @@ export class AnalyzeCommand extends Command {
 
     status(`Analyzing ${commits.length} commits...`, useJson);
 
+    const progress = !useJson && commits.length > 1 ? createProgressBar('Analyzing') : null;
     const { results, fallbackCount } = await analyzeCommits(commits, {
       noLlm: this.noLlm,
       strict: aiConfig.strictMode,
       aiConfig: this.noLlm ? undefined : aiConfig,
       providerConfig: this.noLlm ? undefined : providerConfig,
-      showProgress: !this.json && !isPiped(),
+      onProgress: progress ? (completed, total) => progress.update(completed, total) : undefined,
+      onWarning: (message) => warn(message),
     });
+    progress?.stop();
 
     const summary = buildSummary(results, fallbackCount, startMs);
 

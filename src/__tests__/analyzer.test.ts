@@ -91,14 +91,16 @@ describe('analyzeCommits', () => {
     expect(results[2].score).toBeGreaterThanOrEqual(5);
   });
 
-  test('batch returns correct metadata for each commit', async () => {
-    const commits = [
-      makeCommit('feat: add caching'),
-      { ...makeCommit('Merge branch main'), parents: ['p1', 'p2'] },
-    ];
-    const { results } = await analyzeCommits(commits, { noLlm: true });
-    expect(results[0].isConventionalCommit).toBe(true);
-    expect(results[0].isMergeCommit).toBe(false);
-    expect(results[1].isMergeCommit).toBe(true);
+  test('reports progress through callback without importing UI', async () => {
+    const commits = [makeCommit('wip'), makeCommit('feat: add login')];
+    const progress: Array<[number, number]> = [];
+
+    const { results } = await analyzeCommits(commits, {
+      noLlm: true,
+      onProgress: (completed, total) => progress.push([completed, total]),
+    });
+
+    expect(results).toHaveLength(2);
+    expect(progress).toEqual([[1, 2], [2, 2]]);
   });
 });
