@@ -144,11 +144,7 @@ export function renderChangeSummary(
   bullets: string[],
   useColor = !noColor()
 ): void {
-  const line = c(useColor, pc.gray, '━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`\n${line}`);
-  console.log(c(useColor, pc.blue, '📋 STAGED CHANGES'));
-  console.log(line);
-  console.log(`${stats.filesChanged} files changed, +${stats.insertions} -${stats.deletions} lines`);
+  console.log(`\nAnalyzing staged changes... (${stats.filesChanged} files changed, +${stats.insertions} -${stats.deletions} lines)`);
   if (files.length > 0) {
     console.log('');
     for (const f of files.slice(0, 20)) {
@@ -161,7 +157,7 @@ export function renderChangeSummary(
   }
   if (bullets.length > 0) {
     console.log('');
-    console.log('Summary:');
+    console.log('Changes detected:');
     for (const b of bullets) {
       console.log(`  • ${b}`);
     }

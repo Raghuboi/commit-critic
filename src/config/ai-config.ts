@@ -14,6 +14,15 @@ import type { AIConfig, AIProvider, ProviderSpecificConfig } from '../types/conf
 
 const VALID_PROVIDERS: Set<string> = new Set(['openai', 'openrouter', 'lmstudio', 'vllm', 'ollama', 'llamacpp']);
 
+const DEFAULT_MODELS: Record<AIProvider, string> = {
+  openai: 'gpt-4.1',
+  openrouter: 'anthropic/claude-sonnet-4',
+  lmstudio: 'local-model',
+  vllm: 'local-model',
+  ollama: 'local-model',
+  llamacpp: 'local-model',
+};
+
 const KEY_MAP: Record<string, keyof ProviderSpecificConfig> = {
   'OPENAI_API_KEY': 'openaiApiKey',
   'OPENROUTER_API_KEY': 'openrouterApiKey',
@@ -39,7 +48,7 @@ const PROVIDER_KEYS: Record<string, string[]> = {
 export function resolveAIConfig(overrides?: Partial<AIConfig> & { provider?: string }): AIConfig {
   const providerRaw = overrides?.provider ?? getEnv('AI_PROVIDER', 'openai');
   const provider: AIProvider = VALID_PROVIDERS.has(providerRaw) ? providerRaw as AIProvider : 'openai';
-  const model = overrides?.model ?? getEnv('AI_MODEL', 'gpt-4.1');
+  const model = overrides?.model ?? getEnv('AI_MODEL', DEFAULT_MODELS[provider]);
 
   return {
     provider,
@@ -48,6 +57,7 @@ export function resolveAIConfig(overrides?: Partial<AIConfig> & { provider?: str
     temperature: overrides?.temperature ?? getEnvNumber('AI_TEMPERATURE', 0.1),
     maxTokens: overrides?.maxTokens ?? getEnvNumber('AI_MAX_TOKENS', 4096),
     maxRetries: overrides?.maxRetries ?? getEnvNumber('AI_MAX_RETRIES', 2),
+    timeoutMs: overrides?.timeoutMs ?? getEnvNumber('AI_TIMEOUT_MS', 60000),
   };
 }
 

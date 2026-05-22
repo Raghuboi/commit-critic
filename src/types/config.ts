@@ -23,6 +23,8 @@ export interface AIConfig {
   maxTokens: number;
   /** Max retry count */
   maxRetries: number;
+  /** Abort slow LLM calls after this many milliseconds */
+  timeoutMs: number;
   /**
    * Internal: inject a mock model for testing.
    * When set, this model is used directly instead of resolving a provider.

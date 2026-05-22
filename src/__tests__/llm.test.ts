@@ -53,6 +53,7 @@ const mockAIConfig = {
   temperature: 0.3,
   maxTokens: 2048,
   maxRetries: 0,
+  timeoutMs: 60_000,
 };
 
 const mockProviderConfig = {
@@ -312,10 +313,11 @@ describe('getProvider', () => {
     expect(typeof getProvider({ ...mockAIConfig, provider: 'openrouter' }, { ...mockProviderConfig, openrouterApiKey: 'sk-or-test' })).toBe('function');
   });
 
-  test('returns openai-compatible provider for lmstudio, vllm, ollama', () => {
+  test('returns openai-compatible provider for lmstudio, vllm, ollama, llamacpp', () => {
     expect(typeof getProvider({ ...mockAIConfig, provider: 'lmstudio' }, { ...mockProviderConfig, lmstudioBaseUrl: 'http://localhost:1234/v1' })).toBe('function');
     expect(typeof getProvider({ ...mockAIConfig, provider: 'vllm' }, { ...mockProviderConfig, vllmBaseUrl: 'http://localhost:8000/v1' })).toBe('function');
     expect(typeof getProvider({ ...mockAIConfig, provider: 'ollama' }, { ...mockProviderConfig, ollamaBaseUrl: 'http://localhost:11434/v1' })).toBe('function');
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'llamacpp' }, { ...mockProviderConfig, llamacppBaseUrl: 'http://localhost:8081/v1' })).toBe('function');
   });
 
   test('returns openai-compatible provider for unknown provider (default)', async () => {

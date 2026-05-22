@@ -42,13 +42,15 @@ describe('scoreCommit', () => {
     const result = scoreCommit(makeCommit('wip'));
     expect(result.score).toBeLessThanOrEqual(3);
     expect(result.issues.some(i => i.message.includes('single word'))).toBe(true);
-    expect(result.issues.some(i => i.rewrite && i.rewrite.includes('feat:'))).toBe(true);
+    expect(result.issues.some(i => i.rewrite && i.rewrite.includes('feat: describe the completed change'))).toBe(true);
   });
 
   test('catches fixed bug', () => {
     const result = scoreCommit(makeCommit('fixed bug'));
     expect(result.issues.some(i => i.message.toLowerCase().includes('vague'))).toBe(true);
-    expect(result.issues.some(i => i.rewrite && i.rewrite.includes('fix:'))).toBe(true);
+    const rewrites = result.issues.map(i => i.rewrite).filter(Boolean);
+    expect(rewrites.some(r => r === 'fix: describe the bug and affected behavior')).toBe(true);
+    expect(rewrites.some(r => r?.includes('fix: fix'))).toBe(false);
   });
 
   test('provides rewrite for vague commit', () => {

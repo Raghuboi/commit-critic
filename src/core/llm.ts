@@ -144,7 +144,8 @@ export async function analyzeCommitWithLLM(
           temperature: aiConfig.temperature,
           maxOutputTokens: aiConfig.maxTokens,
           abortSignal: signal,
-        })
+        }),
+        aiConfig.timeoutMs
       );
       return result.output;
     } catch (err) {
@@ -153,15 +154,18 @@ export async function analyzeCommitWithLLM(
     }
   }
 
-  // Text mode: higher token budget for reasoning models
+  // Text mode fallback for providers or model responses that do not support
+  // schema-enforced structured output. Token budget stays user-configurable
+  // through AI_MAX_TOKENS / --model provider settings; no model-specific hacks.
   const textResult = await withTimeout((signal) =>
     generateText({
       model,
       prompt: prompt + '\n\nRespond with valid JSON only. No markdown code fences, no explanation text.',
       temperature: aiConfig.temperature,
-      maxOutputTokens: Math.max(aiConfig.maxTokens, 4096),
+      maxOutputTokens: aiConfig.maxTokens,
       abortSignal: signal,
-    })
+    }),
+    aiConfig.timeoutMs
   );
   const parsed = extractJson(textResult.text);
   if (parsed) {
@@ -192,7 +196,8 @@ export async function generateCommitMessage(
       temperature: aiConfig.temperature,
       maxOutputTokens: aiConfig.maxTokens,
       abortSignal: signal,
-    })
+    }),
+    aiConfig.timeoutMs
   );
 
   return result.text.trim();
@@ -235,7 +240,8 @@ export async function generateChangeBullets(
           temperature: 0.3,
           maxOutputTokens: 300,
           abortSignal: signal,
-        })
+        }),
+        aiConfig.timeoutMs
       );
       const lines = result.text
         .split('\n')

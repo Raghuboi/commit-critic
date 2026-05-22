@@ -7,10 +7,10 @@
  * Does NOT save to .env directly — only prints the commands.
  */
 
-import { Command } from 'clipanion';
+import { Command, Option } from 'clipanion';
 import { select, input } from '@inquirer/prompts';
 import pc from 'picocolors';
-import { resolveAIConfig, resolveProviderConfig, maskKey } from '../config/ai-config';
+import { resolveAIConfig, resolveProviderConfig, maskKey, validateAIConfig } from '../config/ai-config';
 import { noColor } from '../utils/env';
 import type { AIProvider } from '../types/config';
 
@@ -32,11 +32,11 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
 
 const DEFAULT_MODELS: Record<string, string> = {
   openai: 'gpt-4.1',
-  openrouter: 'anthropic/claude-3-haiku',
+  openrouter: 'anthropic/claude-sonnet-4',
   lmstudio: 'local-model',
-  vllm: 'meta-llama/Llama-3.1-8B-Instruct',
-  ollama: 'llama3.1',
-  llamacpp: 'llama-3.1-8B-Instruct',
+  vllm: 'local-model',
+  ollama: 'local-model',
+  llamacpp: 'local-model',
 };
 
 const PROVIDER_KEYS: Record<string, { urlKey?: string; keyEnv?: string }> = {
@@ -61,6 +61,14 @@ export class SetupCommand extends Command {
     examples: [
       ['Run setup wizard', 'commit-critic setup'],
     ],
+  });
+
+  quick = Option.Boolean('--quick', false, {
+    description: 'Return immediately when current provider config is valid',
+  });
+
+  nonInteractive = Option.Boolean('--non-interactive', false, {
+    description: 'Print current config and required environment variables without prompts',
   });
 
   async execute() {
@@ -92,6 +100,22 @@ export class SetupCommand extends Command {
     const currentKey = this.getCurrentApiKey(aiConfig.provider, providerConfig);
     if (currentKey) {
       stdout.write(`API Key:   ${maskKey(currentKey)}\n`);
+    }
+
+    const validationError = validateAIConfig(aiConfig);
+    if (this.quick && !validationError) {
+      stdout.write('\nProvider config is already valid.\n');
+      return;
+    }
+
+    if (this.nonInteractive) {
+      if (validationError) {
+        stdout.write(`\nMissing configuration: ${validationError}\n`);
+        stdout.write('Run `commit-critic setup` interactively or export the required environment variables.\n');
+      } else {
+        stdout.write('\nProvider config is valid.\n');
+      }
+      return;
     }
 
     stdout.write('\n');
@@ -178,6 +202,7 @@ export class SetupCommand extends Command {
       case 'lmstudio': return config.lmstudioBaseUrl;
       case 'vllm': return config.vllmBaseUrl;
       case 'ollama': return config.ollamaBaseUrl;
+      case 'llamacpp': return config.llamacppBaseUrl;
       default: return undefined;
     }
   }

@@ -65,7 +65,7 @@ describe('analyzeCommit', () => {
 
     const { result } = await analyzeCommit(makeCommit('feat: add caching'), {
       noLlm: false,
-      aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: false, temperature: 0.1, maxTokens: 4096, maxRetries: 0, __testModel: mockModel },
+      aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: false, temperature: 0.1, maxTokens: 4096, maxRetries: 0, timeoutMs: 60_000, __testModel: mockModel },
       providerConfig: { openaiApiKey: 'sk-test' },
     });
 
@@ -79,7 +79,7 @@ describe('analyzeCommit', () => {
       analyzeCommit(makeCommit('fix: handle edge case'), {
         noLlm: false,
         strict: true,
-        aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: true, temperature: 0.1, maxTokens: 4096, maxRetries: 2 },
+        aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: true, temperature: 0.1, maxTokens: 4096, maxRetries: 2, timeoutMs: 60_000 },
         providerConfig: { openaiApiKey: 'invalid-key-for-test' },
       })
     ).rejects.toThrow();

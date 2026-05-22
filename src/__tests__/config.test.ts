@@ -9,7 +9,7 @@ const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
   for (const key of Object.keys(process.env)) {
-    if (key.startsWith('AI_') || key.startsWith('OPENAI_') || key.startsWith('OPENROUTER_') || key.startsWith('LM_') || key.startsWith('VLLM_') || key.startsWith('OLLAMA_')) {
+    if (key.startsWith('AI_') || key.startsWith('OPENAI_') || key.startsWith('OPENROUTER_') || key.startsWith('LM_') || key.startsWith('VLLM_') || key.startsWith('OLLAMA_') || key.startsWith('LLAMACPP_')) {
       delete process.env[key];
     }
   }
@@ -24,11 +24,13 @@ test('resolves AI config from env vars', () => {
   process.env.AI_MODEL = 'claude-3.5-sonnet';
   process.env.AI_TEMPERATURE = '0.5';
   process.env.AI_MAX_TOKENS = '2048';
+  process.env.AI_TIMEOUT_MS = '120000';
   const config = resolveAIConfig();
   expect(config.provider).toBe('openrouter');
   expect(config.model).toBe('claude-3.5-sonnet');
   expect(config.temperature).toBe(0.5);
   expect(config.maxTokens).toBe(2048);
+  expect(config.timeoutMs).toBe(120000);
 });
 
 test('resolves AI config from flags', () => {
@@ -52,6 +54,18 @@ test('local provider works without explicit base url', () => {
   const config = resolveAIConfig();
   const err = validateAIConfig(config);
   expect(err).toBeNull();
+});
+
+test('llama.cpp provider works without API key and resolves base URL', () => {
+  process.env.AI_PROVIDER = 'llamacpp';
+  process.env.LLAMACPP_BASE_URL = 'http://localhost:8081/v1';
+  const config = resolveAIConfig();
+  const err = validateAIConfig(config);
+  const provider = resolveProviderConfig();
+  expect(config.provider).toBe('llamacpp');
+  expect(config.model).toBe('local-model');
+  expect(err).toBeNull();
+  expect(provider.llamacppBaseUrl).toBe('http://localhost:8081/v1');
 });
 
 test('provider config resolves env vars', () => {

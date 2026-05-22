@@ -172,6 +172,20 @@ test('analyze identifies vague commit issues', async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
+test('write command help documents explicit commit follow-up', async () => {
+  const { stdout, exitCode } = await runCli(['write', '--help']);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain('--commit');
+  expect(stdout).toContain('Prompt to commit staged changes');
+});
+
+test('setup command non-interactive prints current configuration', async () => {
+  const { stdout, exitCode } = await runCli(['setup', '--non-interactive']);
+  expect(exitCode).toBe(0);
+  expect(stdout).toContain('Current Configuration');
+  expect(stdout).toContain('Provider:');
+});
+
 test('write command with staged changes shows files', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-write-staged-'));
   await runGit(tempDir, ['init', '-b', 'main']);

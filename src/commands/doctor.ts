@@ -8,7 +8,7 @@
  * 4. LLM provider connectivity (optional lightweight call)
  *
  * Output: color-coded health status with fix suggestions
- * Exit: 0 if all pass, 1 if critical failures
+ * Exit: 0 if critical checks pass, 1 if Git/repo checks fail
  */
 
 import { Command } from 'clipanion';
@@ -29,13 +29,15 @@ function getBaseUrl(provider: AIProvider, config: ReturnType<typeof resolveProvi
     case 'openrouter':
       return 'https://openrouter.ai/api/v1';
     case 'lmstudio':
-      return config.lmstudioBaseUrl ?? 'http://localhost:1234';
+      return config.lmstudioBaseUrl ?? 'http://localhost:1234/v1';
     case 'vllm':
-      return config.vllmBaseUrl ?? 'http://localhost:8000';
+      return config.vllmBaseUrl ?? 'http://localhost:8000/v1';
     case 'ollama':
-      return config.ollamaBaseUrl ?? 'http://localhost:11434';
+      return config.ollamaBaseUrl ?? 'http://localhost:11434/v1';
+    case 'llamacpp':
+      return config.llamacppBaseUrl ?? 'http://localhost:8081/v1';
     default:
-      return 'http://localhost:8000';
+      return 'http://localhost:8000/v1';
   }
 }
 
@@ -72,13 +74,13 @@ export class DoctorCommand extends Command {
     const useColor = !noColor();
     let ok = true;
 
-    const check = (label: string, pass: boolean, message: string, hint?: string) => {
-      const icon = pass ? (useColor ? pc.green('✓') : '✓') : (useColor ? pc.red('✗') : '✗');
+    const check = (label: string, pass: boolean, message: string, hint?: string, critical = true) => {
+      const icon = pass ? (useColor ? pc.green('✓') : '✓') : (useColor ? pc.yellow('!') : '!');
       this.context.stdout.write(`${icon} ${label}: ${message}\n`);
       if (!pass && hint) {
         this.context.stdout.write(`  ${useColor ? pc.yellow('Hint:') : 'Hint:'} ${hint}\n`);
       }
-      if (!pass) ok = false;
+      if (!pass && critical) ok = false;
     };
 
     // Git binary
@@ -103,7 +105,8 @@ export class DoctorCommand extends Command {
       'Provider config',
       !validationError,
       validationError ? validationError : `${aiConfig.provider} / ${aiConfig.model}`,
-      validationError ? 'Set the required environment variable or use --no-llm' : undefined
+      validationError ? 'Set the required environment variable or use --no-llm' : undefined,
+      false
     );
 
     // Show env vars (masked)
@@ -122,6 +125,9 @@ export class DoctorCommand extends Command {
     if (providerConfig.ollamaBaseUrl) {
       this.context.stdout.write(`  OLLAMA_BASE_URL=${providerConfig.ollamaBaseUrl}\n`);
     }
+    if (providerConfig.llamacppBaseUrl) {
+      this.context.stdout.write(`  LLAMACPP_BASE_URL=${providerConfig.llamacppBaseUrl}\n`);
+    }
 
     // Connectivity check
     if (!validationError) {
@@ -137,9 +143,9 @@ export class DoctorCommand extends Command {
         const resp = await fetch(`${baseUrl}/models`, { headers, signal: controller.signal });
         clearTimeout(timer);
         const ms = Date.now() - start;
-        check('Connectivity', resp.ok, `${baseUrl} (${ms}ms)`, resp.ok ? undefined : `Server returned ${resp.status}`);
+        check('Connectivity', resp.ok, `${baseUrl} (${ms}ms)`, resp.ok ? undefined : `Server returned ${resp.status}`, false);
       } catch {
-        check('Connectivity', false, 'Unreachable', 'Check that the server is running and the base URL is correct');
+        check('Connectivity', false, 'Unreachable', 'Check that the server is running and the base URL is correct', false);
       }
     }
 

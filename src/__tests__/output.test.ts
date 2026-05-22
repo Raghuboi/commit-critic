@@ -4,7 +4,7 @@
 
 import { describe, test, expect } from 'bun:test';
 import { buildJsonOutput } from '../ui/json';
-import { renderCommit } from '../ui/output';
+import { renderCommit, renderSummary, renderChangeSummary } from '../ui/output';
 import type { AnalysisResult, AnalysisSummary } from '../types/analysis';
 
 function makeResult(subject: string, score: number): AnalysisResult {
@@ -86,6 +86,47 @@ test('JSON output includes suggestion and whyGood fields', () => {
   expect(json.commits[0].whyGood).toBe('Clear scope and imperative mood');
 });
 
+test('default summary omits verbose-only diagnostic stats', () => {
+  const logs: string[] = [];
+  const origLog = console.log;
+  console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
+  try {
+    renderSummary(summary, false, false);
+  } finally {
+    console.log = origLog;
+  }
+  const output = logs.join('\n');
+  expect(output).toContain('Average score: 6.5/10');
+  expect(output).toContain('Vague commits: 2');
+  expect(output).toContain('One-word commits: 1');
+  expect(output).not.toContain('Passed:');
+  expect(output).not.toContain('Conventional commits:');
+  expect(output).not.toContain('Commits with body:');
+  expect(output).not.toContain('Score distribution:');
+  expect(output).not.toContain('Analyzed 3 commits');
+});
+
+test('change summary uses a single concise heading', () => {
+  const logs: string[] = [];
+  const origLog = console.log;
+  console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
+  try {
+    renderChangeSummary(
+      { filesChanged: 1, insertions: 2, deletions: 0 },
+      [{ status: 'A', path: 'src/new.ts' }],
+      ['Added 1 file'],
+      false
+    );
+  } finally {
+    console.log = origLog;
+  }
+  const output = logs.join('\n');
+  expect(output).toContain('Analyzing staged changes...');
+  expect(output).toContain('Changes detected:');
+  expect(output).not.toContain('STAGED CHANGES');
+  expect(output).not.toContain('Summary:');
+});
+
 describe('renderCommit', () => {
   test('bad commit shows Issue: and Better: with rewrite', () => {
     const logs: string[] = [];
@@ -118,6 +159,7 @@ describe('renderCommit', () => {
     expect(output).toContain('Issue:');
     expect(output).toContain('Better:');
     expect(output).toContain('feat: describe the work-in-progress');
+    expect(output).not.toContain('(abc');
     expect(output).not.toContain('Be specific');
   });
 

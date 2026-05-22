@@ -74,6 +74,54 @@ function ensureConventionalPrefix(subject: string, type: string): [string, strin
   return [`${type}: `, subject];
 }
 
+function findVagueKeyword(subject: string): string | undefined {
+  const normalizedWords = subject
+    .toLowerCase()
+    .replace(CONVENTIONAL_REGEX, '$3')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return normalizedWords.find((word) => VAGUE_KEYWORDS.has(word));
+}
+
+function buildVagueRewrite(subject: string, vagueKeyword: string): string {
+  const derivedType = getDerivedType(subject);
+  const normalizedKeyword = vagueKeyword.toLowerCase();
+
+  if (['wip', 'stuff', 'things', 'changes'].includes(normalizedKeyword)) {
+    return `${derivedType}: describe the completed change`;
+  }
+
+  if (['fix', 'fixed', 'bugfix', 'patch'].includes(normalizedKeyword)) {
+    return 'fix: describe the bug and affected behavior';
+  }
+
+  if (['update', 'updated', 'tweak', 'adjust', 'modify'].includes(normalizedKeyword)) {
+    return `${derivedType}: describe the updated component and outcome`;
+  }
+
+  const imperativeSubject = toImperative(subject);
+  const [, msgPart] = ensureConventionalPrefix(imperativeSubject, derivedType);
+  const duplicatePrefix = `${derivedType} `;
+  const deduped = msgPart.toLowerCase().startsWith(duplicatePrefix)
+    ? msgPart.slice(duplicatePrefix.length)
+    : msgPart;
+  return `${derivedType}: ${deduped || 'describe the change'}`;
+}
+
+function buildConventionalRewrite(subject: string): string {
+  const vagueKeyword = findVagueKeyword(subject);
+  if (vagueKeyword) return buildVagueRewrite(subject, vagueKeyword);
+
+  const derivedType = getDerivedType(subject);
+  const cleaned = removeTrailingPeriod(lowercaseFirstChar(toImperative(subject)));
+  const [, msgPart] = ensureConventionalPrefix(cleaned, derivedType);
+  const duplicatePrefix = `${derivedType} `;
+  const deduped = msgPart.toLowerCase().startsWith(duplicatePrefix)
+    ? msgPart.slice(duplicatePrefix.length)
+    : msgPart;
+  return `${derivedType}: ${deduped || 'describe the change'}`;
+}
+
 /**
  * Score a commit message using deterministic rules.
  */
@@ -90,42 +138,33 @@ export function scoreCommit(commit: Commit): ScoringResult {
       severity: 'critical',
       message: 'Subject is a single word — too vague to understand the change.',
       suggestion: 'Use an imperative sentence describing what the commit does.',
-      rewrite: `feat: ${subject} - describe what this change does`,
+      rewrite: buildConventionalRewrite(subject),
     });
   }
 
   // Vague keyword detection
-  const lowerSubject = subject.toLowerCase();
-  for (const kw of VAGUE_KEYWORDS) {
-    if (lowerSubject.includes(kw) && words.length <= 3) {
-      // Build contextual rewrite using derived conventional type
-      const derivedType = getDerivedType(subject);
-      const imperativeSubject = toImperative(subject);
-      // Avoid double-prefixing if subject already has conventional format
-      const [, msgPart] = ensureConventionalPrefix(imperativeSubject, derivedType);
-      const rewrite = `${derivedType}: ${msgPart}`;
-      issues.push({
-        category: 'specificity',
-        severity: 'critical',
-        message: `Subject is vague ("${kw}") — lacks detail about what changed and why.`,
-        suggestion: 'Be specific: what bug? what update? what component?',
-        rewrite,
-      });
-      break; // only one vague keyword issue
-    }
+  const vagueKeyword = findVagueKeyword(subject);
+  if (vagueKeyword && words.length <= 3) {
+    const rewrite = buildVagueRewrite(subject, vagueKeyword);
+    issues.push({
+      category: 'specificity',
+      severity: 'critical',
+      message: `Subject is vague ("${vagueKeyword}") — lacks detail about what changed and why.`,
+      suggestion: 'Be specific: what bug? what update? what component?',
+      rewrite,
+    });
   }
 
   // Conventional commit format
   const ccMatch = subject.match(CONVENTIONAL_REGEX);
   const isConventional = ccMatch !== null;
   if (!isConventional) {
-    const derivedType = getDerivedType(subject);
     issues.push({
       category: 'convention',
       severity: 'warning',
       message: 'Missing conventional commit type (e.g., feat:, fix:, docs:).',
       suggestion: 'Prefix with a type and optional scope: feat(api): add caching',
-      rewrite: `${derivedType}: ${subject}`,
+      rewrite: buildConventionalRewrite(subject),
     });
   } else {
     const type = ccMatch[1];
@@ -167,7 +206,7 @@ export function scoreCommit(commit: Commit): ScoringResult {
       severity: 'critical',
       message: `Subject is only ${subject.length} characters — too short.`,
       suggestion: 'Describe the change in at least 5 characters.',
-      rewrite: `feat: ${subject} — describe what this change does`,
+      rewrite: buildConventionalRewrite(subject),
     });
   }
 

@@ -19,11 +19,19 @@ bun run dev doctor               # Health check
 bun run dev setup                # Configure an LLM provider
 ```
 
-Or build and use as a global CLI:
+Build output is optional. For a source-first challenge review, use `bun run dev ...`.
+If this package is later published to npm, the declared bin can be run with `bunx`:
 
 ```bash
-bun run build                    # Bundle to dist/cli.js
-bunx commit-critic analyze       # Run via bunx from the built output
+bunx commit-critic analyze
+bunx commit-critic write
+```
+
+For this repository before publication, run the built file directly if you want to test the bundled CLI:
+
+```bash
+bun run build
+bun ./dist/cli.js --help
 ```
 
 ## What it does
@@ -144,9 +152,17 @@ export AI_MODEL="mistral-7b-instruct"
 
 ```bash
 export AI_PROVIDER="llamacpp"
-export AI_MODEL="qwen3.6"
+export AI_MODEL="local-model"
 # Optional: override base URL
 # export LLAMACPP_BASE_URL="http://localhost:8081/v1"
+```
+
+Optional generation controls:
+
+```bash
+export AI_TEMPERATURE="0.1"
+export AI_MAX_TOKENS="4096"
+export AI_TIMEOUT_MS="60000"
 ```
 
 Default provider: `openai` / `gpt-4.1`. Override with `AI_PROVIDER` and `AI_MODEL` env vars or `--provider` and `--model` flags.
@@ -184,10 +200,10 @@ bun run dev analyze [options]
 | `--url <url>` | (none) | Remote repository URL to clone and analyze |
 | `--no-llm` | false | Deterministic scoring only (offline, no API key needed) |
 | `--json` | auto | Force JSON output (auto-enabled when piped) |
-|| `--provider <name>` | env | Override AI provider (`openai`, `openrouter`, `lmstudio`, `vllm`, `ollama`, `llamacpp`) |
-|| `--model <name>` | env | Override model ID |
-|| `--no-merges` | false | Exclude merge commits from analysis |
-|| `--verbose` | false | Show detailed statistics (score distribution, top issues, etc.) |
+| `--provider <name>` | env | Override AI provider (`openai`, `openrouter`, `lmstudio`, `vllm`, `ollama`, `llamacpp`) |
+| `--model <name>` | env | Override model ID |
+| `--no-merges` | false | Exclude merge commits from analysis |
+| `--verbose` | false | Show detailed statistics (score distribution, top issues, etc.) |
 
 ### write
 
@@ -215,15 +231,20 @@ Health check for your setup.
 bun run dev doctor
 ```
 
-Checks Git availability, repository detection, LLM provider configuration, and provider connectivity.
+Checks Git availability and repository detection as critical checks. It also reports LLM provider configuration and connectivity as warnings so you can run it before or after setting API keys.
 
 ### setup
 
 Interactive provider configuration wizard.
 
 ```bash
-bun run dev setup
+bun run dev setup [options]
 ```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--quick` | false | Exit immediately when the current provider config is valid |
+| `--non-interactive` | false | Print current config and required environment variables without prompts |
 
 Walks you through selecting an LLM provider, entering credentials or base URL, and choosing a model. Prints the export commands to add to your shell config (~/.bashrc, ~/.zshrc, etc.).
 
@@ -288,7 +309,7 @@ bun run dev write --no-llm
 | [clipanion](https://github.com/arcanis/clipanion) | CLI parsing and command routing |
 | [ai](https://github.com/vercel/ai) (Vercel AI SDK) | LLM calls and structured output |
 | [@ai-sdk/openai](https://github.com/vercel/ai) | OpenAI provider |
-| [@ai-sdk/openai-compatible](https://github.com/vercel/ai) | OpenAI-compatible providers (OpenRouter, LM Studio, vLLM, Ollama) |
+| [@ai-sdk/openai-compatible](https://github.com/vercel/ai) | OpenAI-compatible providers (OpenRouter, LM Studio, vLLM, Ollama, llama.cpp) |
 | [zod](https://github.com/colinhacks/zod) | Schema validation for LLM structured output |
 | [picocolors](https://github.com/alexeyraspopov/picocolors) | Terminal colors (NO_COLOR compliant) |
 | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js) | Interactive prompts for write mode |
