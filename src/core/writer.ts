@@ -28,6 +28,8 @@ const SUGGESTION_RULE = '━━━━━━━━━━━━━━━━━━�
 
 export interface WriterOptions {
   preselectedType?: string;
+  preselectedScope?: string;
+  preselectedDescription?: string;
   noLlm?: boolean;
   aiConfig?: AIConfig;
   providerConfig?: ProviderSpecificConfig;
@@ -42,8 +44,8 @@ export function formatSuggestedCommitMessage(suggestion: string): string {
  */
 export async function runWriter(diff: string, options: WriterOptions, stdout?: WriterOutput): Promise<string | null> {
   const type = await promptCommitType(options.preselectedType);
-  const scope = await promptScope();
-  const description = await promptDescription();
+  const scope = await promptScope(options.preselectedScope);
+  const description = await promptDescription(options.preselectedDescription);
 
   let suggestion: string;
   if (options.noLlm || !options.aiConfig || !options.providerConfig) {

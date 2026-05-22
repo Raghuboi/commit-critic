@@ -41,7 +41,8 @@ export async function promptCommitType(preselected?: string): Promise<string> {
 /**
  * Prompt for scope (optional).
  */
-export async function promptScope(): Promise<string | undefined> {
+export async function promptScope(preselected?: string): Promise<string | undefined> {
+  if (preselected !== undefined) return preselected.trim() || undefined;
   const scope = await input({ message: 'Scope (optional):', default: '' });
   return scope.trim() || undefined;
 }
@@ -49,7 +50,8 @@ export async function promptScope(): Promise<string | undefined> {
 /**
  * Prompt for description.
  */
-export async function promptDescription(): Promise<string> {
+export async function promptDescription(preselected?: string): Promise<string> {
+  if (preselected !== undefined) return preselected.trim();
   return input({ message: 'Brief description of changes:' });
 }
 

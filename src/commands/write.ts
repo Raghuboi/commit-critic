@@ -15,6 +15,8 @@
  *
  * Flags:
  * - --type <type>: pre-select commit type
+ * - --scope <scope>: pre-fill optional scope
+ * - --description <text>: pre-fill short description
  * - --no-llm: skip LLM suggestion, use template only
  * - --provider <name>: override AI provider
  * - --model <name>: override model ID
@@ -42,12 +44,21 @@ export class WriteCommand extends Command {
     examples: [
       ['Interactive writer', 'commit-critic write'],
       ['Pre-select type', 'commit-critic write --type feat'],
+      ['Pre-fill prompts', 'commit-critic write --type docs --scope readme --description "clarify setup"'],
       ['Commit after accepting the generated message', 'commit-critic write --commit'],
     ],
   });
 
   type = Option.String('--type', {
     description: 'Pre-select commit type (feat, fix, docs, etc.)',
+  });
+
+  scope = Option.String('--scope', {
+    description: 'Pre-fill optional commit scope',
+  });
+
+  description = Option.String('--description', {
+    description: 'Pre-fill short change description',
   });
 
   noLlm = Option.Boolean('--no-llm', false, {
@@ -123,6 +134,8 @@ export class WriteCommand extends Command {
 
     const message = await runWriter(diff, {
       preselectedType: this.type,
+      preselectedScope: this.scope,
+      preselectedDescription: this.description,
       noLlm: this.noLlm,
       aiConfig: this.noLlm ? undefined : aiConfig,
       providerConfig: this.noLlm ? undefined : providerConfig,

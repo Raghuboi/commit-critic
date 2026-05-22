@@ -204,6 +204,9 @@ commit-critic write
 # Preselect type
 commit-critic write --type refactor
 
+# Pre-fill prompt values while still reviewing the generated message
+commit-critic write --type docs --scope readme --description "clarify setup"
+
 # Offer to commit after accepting the message
 commit-critic write --commit
 ```
@@ -235,6 +238,8 @@ Useful flags:
 | Flag | Description |
 | --- | --- |
 | `--type <type>` | Preselect commit type |
+| `--scope <scope>` | Pre-fill optional scope |
+| `--description <text>` | Pre-fill the short description prompt |
 | `--provider <name>` | Override `AI_PROVIDER` for one run |
 | `--model <name>` | Override `AI_MODEL` for one run |
 | `--no-llm` | Use a deterministic template |
