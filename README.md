@@ -65,12 +65,12 @@ bun ./src/cli.ts --analyze --count=5
 
 ## Commands
 
-From source, replace `commit-critic` with `bun ./src/cli.ts`.
+From a source checkout, run the Bun entry point directly:
 
 ### Analyze the current repo
 
 ```bash
-commit-critic --analyze
+bun ./src/cli.ts --analyze
 ```
 
 By default this reviews the last 50 commits in the current Git repository.
@@ -78,23 +78,23 @@ By default this reviews the last 50 commits in the current Git repository.
 Equivalent subcommand form:
 
 ```bash
-commit-critic analyze
+bun ./src/cli.ts analyze
 ```
 
 Useful variants:
 
 ```bash
 # Analyze fewer commits
-commit-critic --analyze --count=10
+bun ./src/cli.ts --analyze --count=10
 
 # Analyze a remote repository
-commit-critic --analyze --url="https://github.com/steel-dev/steel-browser"
+bun ./src/cli.ts --analyze --url="https://github.com/steel-dev/steel-browser"
 
 # Force machine-readable output
-commit-critic --analyze --count=10 --json
+bun ./src/cli.ts --analyze --count=10 --json
 
 # Deterministic offline check, no provider call
-commit-critic --analyze --count=3 --no-llm
+bun ./src/cli.ts --analyze --count=3 --no-llm
 ```
 
 Example terminal output:
@@ -137,7 +137,7 @@ When stdout is piped, JSON output is enabled automatically. Top-level JSON field
 ### Write a commit message
 
 ```bash
-commit-critic --write
+bun ./src/cli.ts --write
 ```
 
 `--write` reads `git diff --staged`, summarizes the staged changes, suggests a Conventional Commit message, and prompts you to accept, edit, regenerate, cancel, or type your own message.
@@ -147,22 +147,22 @@ It does not run `git commit` unless you pass `--commit`.
 Equivalent subcommand form:
 
 ```bash
-commit-critic write
+bun ./src/cli.ts write
 ```
 
 Common workflow:
 
 ```bash
 git add <files>
-commit-critic --write
+bun ./src/cli.ts --write
 ```
 
 Prefill the prompt when you already know the intent:
 
 ```bash
-commit-critic --write --type=refactor --scope=config
-commit-critic --write --type=docs --scope=readme --description="clarify setup"
-commit-critic --write --commit
+bun ./src/cli.ts --write --type=refactor --scope=config
+bun ./src/cli.ts --write --type=docs --scope=readme --description="clarify setup"
+bun ./src/cli.ts --write --commit
 ```
 
 Example flow:
@@ -190,7 +190,7 @@ Press Enter to accept, type a custom message, or /e=edit /r=regenerate /c=cancel
 ### Check setup
 
 ```bash
-commit-critic doctor
+bun ./src/cli.ts doctor
 ```
 
 `doctor` checks Git, repository detection, provider configuration, and provider connectivity. API keys are masked in diagnostic output.
@@ -198,9 +198,9 @@ commit-critic doctor
 ### Configure interactively
 
 ```bash
-commit-critic setup
-commit-critic setup --quick
-commit-critic setup --non-interactive
+bun ./src/cli.ts setup
+bun ./src/cli.ts setup --quick
+bun ./src/cli.ts setup --non-interactive
 ```
 
 `setup` prints the environment values commit-critic needs. It writes `.env` only after explicit confirmation and uses private file permissions.
@@ -219,8 +219,8 @@ export AI_BASE_URL=https://provider.example/v1
 export AI_API_KEY=<api-key>
 export AI_MODEL=<model-name>
 
-commit-critic doctor
-commit-critic --analyze --count=5
+bun ./src/cli.ts doctor
+bun ./src/cli.ts --analyze --count=5
 ```
 
 For OpenAI's hosted API, omit `AI_BASE_URL`:
@@ -242,8 +242,8 @@ export AI_PROVIDER=local
 export AI_BASE_URL=http://localhost:8081/v1
 export AI_MODEL=qwen3.6
 
-commit-critic doctor
-commit-critic --analyze --count=5
+bun ./src/cli.ts doctor
+bun ./src/cli.ts --analyze --count=5
 ```
 
 For local servers that require auth, set `AI_API_KEY` or `LOCAL_API_KEY`.
@@ -356,7 +356,7 @@ export AI_BASE_URL=https://provider.example/v1
 export AI_API_KEY=<api-key>
 export AI_MODEL=<model-name>
 
-commit-critic doctor
+bun ./src/cli.ts doctor
 ```
 
 For OpenAI directly:
@@ -366,7 +366,7 @@ export AI_PROVIDER=openai
 export AI_API_KEY=<openai-api-key>
 export AI_MODEL=gpt-4.1
 
-commit-critic doctor
+bun ./src/cli.ts doctor
 ```
 
 ### Connectivity fails
@@ -374,8 +374,8 @@ commit-critic doctor
 Check that the base URL includes `/v1`, the model name exists on that provider, and the server is reachable:
 
 ```bash
-commit-critic doctor
-commit-critic --analyze --count=1 --json
+bun ./src/cli.ts doctor
+bun ./src/cli.ts --analyze --count=1 --json
 ```
 
 ### `--write` says there are no staged changes
@@ -384,7 +384,7 @@ Stage files first:
 
 ```bash
 git add <files>
-commit-critic --write
+bun ./src/cli.ts --write
 ```
 
 ### Not in a Git repository
@@ -392,7 +392,7 @@ commit-critic --write
 Run inside a repo or pass a remote URL:
 
 ```bash
-commit-critic --analyze --url="https://github.com/user/repo"
+bun ./src/cli.ts --analyze --url="https://github.com/user/repo"
 ```
 
 ## License
