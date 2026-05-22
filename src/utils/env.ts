@@ -1,60 +1,31 @@
-/**
- * Environment variable helpers
- *
- * Provides typed access to environment variables with defaults.
- * Respects NO_COLOR.
- */
+/** Environment variable helpers. */
 
-/**
- * Get environment variable as string.
- * Returns undefined if not set and no default provided.
- */
 export function getEnv(key: string): string | undefined;
-/**
- * Get environment variable as string with a default value.
- * Returns defaultValue if not set.
- */
 export function getEnv(key: string, defaultValue: string): string;
 export function getEnv(key: string, defaultValue?: string): string | undefined {
-  const val = process.env[key];
-  if (val === undefined || val === '') return defaultValue;
-  return val;
+  const value = process.env[key];
+  return value === undefined || value === '' ? defaultValue : value;
 }
 
-/**
- * Get environment variable as boolean.
- */
-export function getEnvBool(key: string, defaultValue: boolean = false): boolean {
-  const val = process.env[key];
-  if (val === undefined) return defaultValue;
-  return val === '1' || val === 'true' || val === 'yes' || val === 'on';
+export function getEnvBool(key: string, defaultValue = false): boolean {
+  const value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 }
 
-/**
- * Get environment variable as number.
- */
 export function getEnvNumber(key: string, defaultValue: number): number {
-  const val = process.env[key];
-  if (val === undefined) return defaultValue;
-  const parsed = Number(val);
-  if (Number.isNaN(parsed)) return defaultValue;
-  return parsed;
+  const value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
-/**
- * Check if stdout is a TTY.
- */
 export function isTTY(): boolean {
   return process.stdout.isTTY === true;
 }
 
-/**
- * Check if colors should be disabled.
- */
 export function noColor(): boolean {
-  if (getEnvBool('NO_COLOR', false)) return true;
-  if (getEnvBool('FORCE_COLOR', false)) return false;
-  if (getEnvBool('CLICOLOR_FORCE', false)) return false;
-  if (getEnv('CLICOLOR') === '0') return true;
+  if (getEnvBool('FORCE_COLOR') || getEnvBool('CLICOLOR_FORCE')) return false;
+  if (getEnvBool('NO_COLOR') || getEnv('CLICOLOR') === '0') return true;
   return !isTTY();
 }

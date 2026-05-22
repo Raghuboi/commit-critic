@@ -165,9 +165,3 @@ export function getRequiredProviderEnvVars(provider: string | undefined): string
   const definition = getProviderDefinition(provider);
   return definition.apiKeyRequired && definition.apiKeyEnv ? [definition.apiKeyEnv] : [];
 }
-
-export function getLocalBaseUrlEnvVars(): string[] {
-  return SUPPORTED_PROVIDERS
-    .map((provider) => getProviderDefinition(provider).baseUrlEnv)
-    .filter((value): value is string => Boolean(value));
-}

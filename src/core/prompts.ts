@@ -6,11 +6,9 @@
 
 import type { Commit } from '../types/commit';
 import type { ScoringResult } from '../types/scoring';
-import { WRITE_MAX_CHARS, WRITE_DIFF_TRUNCATED, truncateDiff } from '../utils/diff';
+import { truncateDiff } from '../utils/diff';
 
 export const MAX_BULLET_DIFF_CHARS = 8_000;
-
-export { truncateDiff };
 
 export const ANALYSIS_SYSTEM_IDENTITY = `You are a senior engineer reviewing commit message quality.`;
 
