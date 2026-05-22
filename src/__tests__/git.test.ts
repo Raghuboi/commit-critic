@@ -6,7 +6,7 @@ import { test, expect, beforeAll, afterAll } from 'bun:test';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getCommits, isGitRepo, hasStagedChanges, getStagedDiff, cloneRepo } from '../core/git';
+import { getCommits, isGitRepo, hasStagedChanges, getStagedDiff, cloneRepo, commitStagedChanges } from '../core/git';
 
 let tempDir: string;
 let remoteDir: string;
@@ -93,5 +93,53 @@ test('detects staged changes', async () => {
   expect(await hasStagedChanges(workDir)).toBe(true);
   const diff = await getStagedDiff(workDir);
   expect(diff.includes('x.txt')).toBe(true);
+  await rm(workDir, { recursive: true, force: true });
+});
+
+test('commits staged changes successfully', async () => {
+  const workDir = await mkdtemp(join(tmpdir(), 'commit-critic-commit-'));
+  await runGit(workDir, ['init', '-b', 'main']);
+  await runGit(workDir, ['config', 'user.email', 'test@test.com']);
+  await runGit(workDir, ['config', 'user.name', 'Test']);
+
+  // Create a file and stage it
+  await writeFile(join(workDir, 'test.txt'), 'hello world');
+  await runGit(workDir, ['add', 'test.txt']);
+
+  // Verify no commits yet
+  const commitsBefore = await getCommits(workDir, 10);
+  expect(commitsBefore.length).toBe(0);
+
+  // Commit with a message
+  const result = await commitStagedChanges(workDir, 'feat: add test file');
+  expect(result.success).toBe(true);
+  expect(result.output).toBeDefined();
+  expect(result.output).toContain('1 file changed');
+
+  // Verify the commit was created
+  const commitsAfter = await getCommits(workDir, 10);
+  expect(commitsAfter.length).toBe(1);
+  expect(commitsAfter[0].subject).toBe('feat: add test file');
+
+  // Verify no more staged changes
+  expect(await hasStagedChanges(workDir)).toBe(false);
+
+  await rm(workDir, { recursive: true, force: true });
+});
+
+test('fails to commit when nothing is staged', async () => {
+  const workDir = await mkdtemp(join(tmpdir(), 'commit-critic-nothing-'));
+  await runGit(workDir, ['init', '-b', 'main']);
+  await runGit(workDir, ['config', 'user.email', 'test@test.com']);
+  await runGit(workDir, ['config', 'user.name', 'Test']);
+
+  // Create a file but don't stage it
+  await writeFile(join(workDir, 'test.txt'), 'hello world');
+
+  // Commit should fail
+  const result = await commitStagedChanges(workDir, 'feat: add test file');
+  expect(result.success).toBe(false);
+  expect(result.error).toBeDefined();
+
   await rm(workDir, { recursive: true, force: true });
 });

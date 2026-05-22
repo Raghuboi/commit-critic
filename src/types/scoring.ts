@@ -32,6 +32,8 @@ export interface Issue {
   message: string;
   /** Suggested fix (optional) */
   suggestion?: string;
+  /** Concrete rewritten commit message replacing the original (optional) */
+  rewrite?: string;
 }
 
 /**
@@ -50,15 +52,4 @@ export interface ScoringResult {
   hasBody?: boolean;
 }
 
-/**
- * Score breakdown by category.
- * @deprecated Not used in current scoring model. Retained for future use.
- */
-export interface ScoreBreakdown {
-  structure: number;
-  subjectQuality: number;
-  conventionalCommits: number;
-  bodyQuality: number;
-  diffCorrelation: number;
-  gitManualStyle: number;
-}
+

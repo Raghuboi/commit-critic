@@ -7,7 +7,14 @@
 
 /**
  * Get environment variable as string.
+ * Returns undefined if not set and no default provided.
  */
+export function getEnv(key: string): string | undefined;
+/**
+ * Get environment variable as string with a default value.
+ * Returns defaultValue if not set.
+ */
+export function getEnv(key: string, defaultValue: string): string;
 export function getEnv(key: string, defaultValue?: string): string | undefined {
   const val = process.env[key];
   if (val === undefined || val === '') return defaultValue;

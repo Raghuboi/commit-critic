@@ -14,18 +14,35 @@ import { withTempDir } from '../utils/temp-dir';
 /**
  * Detect the default branch of a remote repository.
  * Uses git ls-remote to query the remote HEAD symbolic ref.
+ * Falls back to listing refs/heads/ for bare repos.
  */
 export async function detectDefaultBranch(url: string): Promise<string | undefined> {
   try {
+    // Try symref first (works for normal remotes)
     const proc = Bun.spawn(['git', 'ls-remote', '--symref', url, 'HEAD'], {
       stdout: 'pipe',
       stderr: 'pipe',
     });
     const text = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
-    if (exitCode !== 0) return undefined;
-    const match = text.match(/ref:\s+refs\/heads\/(\S+)/);
-    return match?.[1];
+    if (exitCode === 0) {
+      const match = text.match(/ref:\s+refs\/heads\/(\S+)/);
+      if (match?.[1]) return match[1];
+    }
+
+    // Fallback: list all refs/heads and pick the first one (for bare repos)
+    const proc2 = Bun.spawn(['git', 'ls-remote', url], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const text2 = await new Response(proc2.stdout).text();
+    const exitCode2 = await proc2.exited;
+    if (exitCode2 === 0) {
+      const match2 = text2.match(/refs\/heads\/(\S+)/);
+      if (match2?.[1]) return match2[1];
+    }
+
+    return undefined;
   } catch {
     return undefined;
   }

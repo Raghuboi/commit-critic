@@ -46,12 +46,6 @@ test('validates missing API key', () => {
   expect(err).toContain('OPENAI_API_KEY');
 });
 
-test('supports fallback chain', () => {
-  process.env.AI_FALLBACK_CHAIN = 'lmstudio:llama-3.3-70b,openai:gpt-4.1';
-  const config = resolveAIConfig();
-  expect(config.fallbackChain).toEqual(['lmstudio:llama-3.3-70b', 'openai:gpt-4.1']);
-});
-
 test('local provider works without explicit base url', () => {
   process.env.AI_PROVIDER = 'lmstudio';
   delete process.env.LM_STUDIO_BASE_URL;
@@ -66,4 +60,9 @@ test('provider config resolves env vars', () => {
   const cfg = resolveProviderConfig();
   expect(cfg.openaiApiKey).toBe('sk-test123');
   expect(cfg.lmstudioBaseUrl).toBe('http://localhost:1234/v1');
+});
+
+test('unknown provider falls back to openai', () => {
+  const config = resolveAIConfig({ provider: 'unknown-provider' as import('../types/config').AIProvider });
+  expect(config.provider).toBe('openai');
 });

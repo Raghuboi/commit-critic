@@ -20,12 +20,13 @@
 
 import { Command, Option } from 'clipanion';
 import { getCommits, isGitRepo } from '../core/git';
-import { analyzeCommits, getFallbackCount } from '../core/analyzer';
+import { analyzeCommits } from '../core/analyzer';
 import { analyzeRemoteRepo, isValidRepoUrl } from '../core/remote';
 import { renderAnalysis, status, error } from '../ui/output';
 import { formatJson, buildJsonOutput, isPiped } from '../ui/json';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
-import type { AnalysisSummary } from '../types/analysis';
+import type { AIConfig } from '../types/config';
+import type { AnalysisResult, AnalysisSummary } from '../types/analysis';
 import { version } from '../../package.json';
 import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR, EXIT_BAD_INPUT } from '../utils/exit-codes';
 
@@ -88,7 +89,7 @@ export class AnalyzeCommand extends Command {
     const aiConfig = resolveAIConfig({
       provider: this.provider,
       model: this.model,
-    });
+    } as Partial<AIConfig> & { provider?: string });
     const providerConfig = resolveProviderConfig();
 
     if (!this.noLlm) {
@@ -102,13 +103,15 @@ export class AnalyzeCommand extends Command {
     let commits;
     let repoName = repoPath;
 
+    const useJson = this.json || isPiped();
+
     try {
       if (this.url) {
         if (!isValidRepoUrl(this.url)) {
           error('Invalid repository URL', 'Use a valid git URL (https://, git@, or file://)');
           process.exit(EXIT_BAD_INPUT);
         }
-        status(`Cloning ${this.url}...`, this.json);
+        status(`Cloning ${this.url}...`, useJson);
         commits = await analyzeRemoteRepo(this.url, async (tempPath) => {
           repoName = this.url!;
           if (!(await isGitRepo(tempPath))) {
@@ -123,28 +126,27 @@ export class AnalyzeCommand extends Command {
         }
         commits = await getCommits(repoPath, count, this.noMerges);
       }
-    } catch (err: any) {
-      error(err.message || 'Failed to read commits', 'Check the repository URL and network connection, or use --no-llm for offline mode.');
+    } catch (err: unknown) {
+      error(err instanceof Error ? err.message : 'Failed to read commits', 'Check the repository URL and network connection, or use --no-llm for offline mode.');
       process.exit(EXIT_GENERAL_ERROR);
     }
 
     if (commits.length === 0) {
-      status('No commits found.', this.json);
+      status('No commits found.', useJson);
       process.exit(EXIT_SUCCESS);
     }
 
-    status(`Analyzing ${commits.length} commits...`, this.json);
+    status(`Analyzing ${commits.length} commits...`, useJson);
 
-    const results = await analyzeCommits(commits, {
+    const { results, fallbackCount } = await analyzeCommits(commits, {
       noLlm: this.noLlm,
       aiConfig: this.noLlm ? undefined : aiConfig,
       providerConfig: this.noLlm ? undefined : providerConfig,
       showProgress: !this.json && !isPiped(),
     });
 
-    const summary = buildSummary(results, startMs);
+    const summary = buildSummary(results, fallbackCount, startMs);
 
-    const useJson = this.json || isPiped();
     if (useJson) {
       const jsonOutput = buildJsonOutput('analyze', repoName, results, summary, version);
       this.context.stdout.write(formatJson(jsonOutput) + '\n');
@@ -159,14 +161,17 @@ export class AnalyzeCommand extends Command {
   }
 }
 
-function buildSummary(results: import('../types/analysis').AnalysisResult[], startMs: number): AnalysisSummary {
+function buildSummary(results: AnalysisResult[], fallbackCount: number, startMs: number): AnalysisSummary {
   const scores = results.map(r => r.score);
   const overall = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
   const passed = results.filter(r => r.score >= 7).length;
   const warnings = results.filter(r => r.score >= 5 && r.score < 7).length;
   const errors = results.filter(r => r.score < 5).length;
 
-  const vagueCommits = results.filter(r => r.score < 5).length;
+  const vagueCommits = results.filter(r => 
+    r.issues.some(i => i.category === 'specificity') || 
+    r.subject.trim().split(/\s+/).filter(Boolean).length <= 2
+  ).length;
   const oneWordCommits = results.filter(r => r.subject.trim().split(/\s+/).filter(Boolean).length === 1).length;
   const conventionalCommits = results.filter(r => r.isConventionalCommit).length;
   const commitsWithBody = results.filter(r => r.hasBody).length;
@@ -190,7 +195,7 @@ function buildSummary(results: import('../types/analysis').AnalysisResult[], sta
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  const llmFallbackCount = getFallbackCount();
+  const llmFallbackCount = fallbackCount;
 
   return {
     commitCount: results.length,

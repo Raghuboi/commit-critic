@@ -22,19 +22,25 @@ function makeCommit(subject: string, body = ''): Commit {
 
 describe('analyzeCommit', () => {
   test('uses deterministic score in --no-llm mode', async () => {
-    const result = await analyzeCommit(makeCommit('wip'), { noLlm: true });
+    const { result } = await analyzeCommit(makeCommit('wip'), { noLlm: true });
     expect(result.score).toBeLessThanOrEqual(3);
     expect(result.issues.length).toBeGreaterThan(0);
   });
 
   test('returns full AnalysisResult shape', async () => {
-    const result = await analyzeCommit(makeCommit('feat: add caching'), { noLlm: true });
+    const { result } = await analyzeCommit(makeCommit('feat: add caching'), { noLlm: true });
     expect(result.hash).toBe('abc123def456');
     expect(result.shortHash).toBe('abc1234');
     expect(result.subject).toBe('feat: add caching');
     expect(result.isConventionalCommit).toBe(true);
     expect(result.isMergeCommit).toBe(false);
     expect(typeof result.hasBody).toBe('boolean');
+  });
+
+  test('--no-llm mode suggestion and whyGood are undefined', async () => {
+    const { result } = await analyzeCommit(makeCommit('feat: add caching'), { noLlm: true });
+    expect(result.suggestion).toBeUndefined();
+    expect(result.whyGood).toBeUndefined();
   });
 
   test('preserves suggestion and whyGood from LLM result', async () => {
@@ -57,9 +63,9 @@ describe('analyzeCommit', () => {
       }),
     });
 
-    const result = await analyzeCommit(makeCommit('feat: add caching'), {
+    const { result } = await analyzeCommit(makeCommit('feat: add caching'), {
       noLlm: false,
-      aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: false, temperature: 0.1, maxTokens: 4096, maxRetries: 0, fallbackChain: [], __testModel: mockModel },
+      aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: false, temperature: 0.1, maxTokens: 4096, maxRetries: 0, __testModel: mockModel },
       providerConfig: { openaiApiKey: 'sk-test' },
     });
 
@@ -73,7 +79,7 @@ describe('analyzeCommit', () => {
       analyzeCommit(makeCommit('fix: handle edge case'), {
         noLlm: false,
         strict: true,
-        aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: true, temperature: 0.1, maxTokens: 4096, maxRetries: 2, fallbackChain: [] },
+        aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: true, temperature: 0.1, maxTokens: 4096, maxRetries: 2 },
         providerConfig: { openaiApiKey: 'invalid-key-for-test' },
       })
     ).rejects.toThrow();
@@ -87,7 +93,7 @@ describe('analyzeCommits', () => {
       makeCommit('feat: add login'),
       makeCommit('fix: typo'),
     ];
-    const results = await analyzeCommits(commits, { noLlm: true });
+    const { results } = await analyzeCommits(commits, { noLlm: true });
     expect(results).toHaveLength(3);
     expect(results[0].score).toBeLessThanOrEqual(3);
     expect(results[1].score).toBeGreaterThanOrEqual(5);
@@ -99,7 +105,7 @@ describe('analyzeCommits', () => {
       makeCommit('feat: add caching'),
       { ...makeCommit('Merge branch main'), parents: ['p1', 'p2'] },
     ];
-    const results = await analyzeCommits(commits, { noLlm: true });
+    const { results } = await analyzeCommits(commits, { noLlm: true });
     expect(results[0].isConventionalCommit).toBe(true);
     expect(results[0].isMergeCommit).toBe(false);
     expect(results[1].isMergeCommit).toBe(true);

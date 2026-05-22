@@ -47,9 +47,11 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    console.log('\nSuggested commit message:\n');
-    console.log('  ' + suggestion.split('\n').join('\n  '));
-    console.log('');
+    const line = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+    process.stdout.write('\nSuggested commit message:\n');
+    process.stdout.write(line + '\n');
+    process.stdout.write(suggestion + '\n');
+    process.stdout.write(line + '\n');
 
     const result = await promptAction(suggestion);
     if (result.action === 'accept') {

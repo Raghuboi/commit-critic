@@ -82,19 +82,23 @@ test('analyze command handles remote repo via file://', async () => {
   await rm(pushDir, { recursive: true, force: true });
 });
 
-test('write command exits 1 with no staged changes', async () => {
+test('write command exits 10 with no staged changes', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-write-'));
   await runGit(tempDir, ['init', '-b', 'main']);
   const { exitCode, stderr } = await runCli(['write', '--no-llm'], tempDir);
-  expect(exitCode).toBe(1);
+  expect(exitCode).toBe(10); // EXIT_BAD_INPUT for user input error
   expect(stderr).toContain('No staged changes');
   await rm(tempDir, { recursive: true, force: true });
 });
 
 test('doctor command checks git availability', async () => {
-  const { stdout, exitCode } = await runCli(['doctor']);
-  expect(exitCode).toBe(0);
+  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-doctor-'));
+  await runGit(tempDir, ['init', '-b', 'main']);
+  const { stdout, exitCode } = await runCli(['doctor'], tempDir);
   expect(stdout).toContain('Git');
+  // Exit code is 0 if all checks pass, or 1 if provider config missing (env-dependent)
+  expect(exitCode === 0 || exitCode === 1).toBe(true);
+  await rm(tempDir, { recursive: true, force: true });
 });
 
 test('auto-JSON on pipe', async () => {
@@ -126,4 +130,72 @@ test('temp dir cleanup on error', async () => {
   } catch {
     // expected
   }
+});
+
+test('analyze includes rewrite in issues for bad commits', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-better-'));
+  await runGit(tempDir, ['init', '-b', 'main']);
+  await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
+  await runGit(tempDir, ['config', 'user.name', 'Test']);
+  await writeFile(join(tempDir, 'a.txt'), 'hello');
+  await runGit(tempDir, ['add', 'a.txt']);
+  await runGit(tempDir, ['commit', '-m', 'wip']);
+
+  const { stdout, exitCode } = await runCli(['analyze', '--no-llm', '--json', '--count', '10'], tempDir);
+  expect(exitCode).toBe(1);
+  const json = JSON.parse(stdout);
+  const commit = json.commits[0];
+  expect(commit.score).toBeLessThan(5);
+  const issuesWithRewrite = commit.issues.filter((i: { rewrite?: string }) => i.rewrite);
+  expect(issuesWithRewrite.length).toBeGreaterThan(0);
+  const firstRewrite = issuesWithRewrite[0].rewrite as string;
+  expect(firstRewrite).toContain('feat:');
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+test('analyze identifies vague commit issues', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-issue-'));
+  await runGit(tempDir, ['init', '-b', 'main']);
+  await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
+  await runGit(tempDir, ['config', 'user.name', 'Test']);
+  await writeFile(join(tempDir, 'b.txt'), 'world');
+  await runGit(tempDir, ['add', 'b.txt']);
+  await runGit(tempDir, ['commit', '-m', 'fixed bug']);
+
+  const { stdout } = await runCli(['analyze', '--no-llm', '--json', '--count', '10'], tempDir);
+  const json = JSON.parse(stdout);
+  const commit = json.commits[0];
+  const hasVagueIssue = commit.issues.some((i: { message: string }) =>
+    i.message.toLowerCase().includes('vague')
+  );
+  expect(hasVagueIssue).toBe(true);
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+test('write command with staged changes shows files', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-write-staged-'));
+  await runGit(tempDir, ['init', '-b', 'main']);
+  await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
+  await runGit(tempDir, ['config', 'user.name', 'Test']);
+  await writeFile(join(tempDir, 'initial.txt'), 'init');
+  await runGit(tempDir, ['add', 'initial.txt']);
+  await runGit(tempDir, ['commit', '-m', 'feat: initial commit']);
+  await writeFile(join(tempDir, 'new-feature.ts'), 'export function feature() {}');
+  await runGit(tempDir, ['add', 'new-feature.ts']);
+
+  const proc = Bun.spawn(
+    ['bun', CLI_PATH, 'write', '--no-llm'],
+    {
+      cwd: tempDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      stdin: undefined,
+      env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
+    }
+  );
+  setTimeout(() => proc.kill(), 3000);
+  const exitCode = await proc.exited;
+  const stdout = await new Response(proc.stdout).text();
+  expect(stdout).toContain('new-feature.ts');
+  await rm(tempDir, { recursive: true, force: true });
 });

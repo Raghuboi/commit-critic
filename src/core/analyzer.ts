@@ -29,14 +29,9 @@ export interface AnalysisOptions {
   showProgress?: boolean;
 }
 
-let fallbackCount = 0;
-
-export function getFallbackCount(): number {
-  return fallbackCount;
-}
-
-export function resetFallbackCount(): void {
-  fallbackCount = 0;
+export interface AnalyzeCommitOutput {
+  result: AnalysisResult;
+  usedFallback: boolean;
 }
 
 /**
@@ -45,7 +40,7 @@ export function resetFallbackCount(): void {
 export async function analyzeCommit(
   commit: Commit,
   options: AnalysisOptions
-): Promise<AnalysisResult> {
+): Promise<AnalyzeCommitOutput> {
   const deterministic = scoreCommit(commit);
 
   let score = deterministic.score;
@@ -53,6 +48,8 @@ export async function analyzeCommit(
   let suggestions: string[] = [];
   let suggestion: string | undefined;
   let whyGood: string | undefined;
+
+  let usedFallback = false;
 
   if (!options.noLlm && options.aiConfig && options.providerConfig) {
     try {
@@ -64,7 +61,7 @@ export async function analyzeCommit(
       );
       score = llmResult.score;
       issues = llmResult.issues.map(i => ({
-        category: i.category as any,
+        category: i.category,
         severity: i.severity,
         message: i.message,
       }));
@@ -73,7 +70,7 @@ export async function analyzeCommit(
       whyGood = llmResult.whyGood;
     } catch {
       // Fallback to deterministic score on LLM failure
-      fallbackCount++;
+      usedFallback = true;
       warn('LLM unavailable — using deterministic scoring. Check your API key and network connection.');
       if (options.strict) {
         throw new Error('LLM analysis failed and strict mode is enabled');
@@ -81,7 +78,7 @@ export async function analyzeCommit(
     }
   }
 
-  return {
+  const result: AnalysisResult = {
     hash: commit.hash,
     shortHash: commit.shortHash,
     subject: commit.subject,
@@ -94,6 +91,8 @@ export async function analyzeCommit(
     isMergeCommit: isMergeCommit(commit),
     hasBody: commit.body.trim().length > 0,
   };
+
+  return { result, usedFallback };
 }
 
 /**
@@ -102,14 +101,16 @@ export async function analyzeCommit(
 export async function analyzeCommits(
   commits: Commit[],
   options: AnalysisOptions
-): Promise<AnalysisResult[]> {
-  resetFallbackCount();
+): Promise<{ results: AnalysisResult[]; fallbackCount: number }> {
   const progress = options.showProgress && commits.length > 1 ? createProgressBar('Analyzing') : null;
   const results: AnalysisResult[] = [];
+  let fallbackCount = 0;
   for (let i = 0; i < commits.length; i++) {
-    results.push(await analyzeCommit(commits[i], options));
+    const { result, usedFallback } = await analyzeCommit(commits[i], options);
+    if (usedFallback) fallbackCount++;
+    results.push(result);
     progress?.update(i + 1, commits.length);
   }
   progress?.stop();
-  return results;
+  return { results, fallbackCount };
 }

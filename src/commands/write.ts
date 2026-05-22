@@ -21,12 +21,14 @@
  */
 
 import { Command, Option } from 'clipanion';
-import { getStagedDiff, hasStagedChanges, getStagedStats, getStagedFiles } from '../core/git';
+import { getStagedDiff, hasStagedChanges, getStagedStats, getStagedFiles, commitStagedChanges } from '../core/git';
 import { runWriter } from '../core/writer';
 import { generateChangeBullets } from '../core/llm';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
+import type { AIConfig, AIProvider } from '../types/config';
 import { error, renderChangeSummary } from '../ui/output';
-import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR } from '../utils/exit-codes';
+import { promptConfirm } from '../ui/prompts';
+import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR, EXIT_BAD_INPUT } from '../utils/exit-codes';
 
 export class WriteCommand extends Command {
   static paths = [['write'], ['w'], ['--write']];
@@ -59,18 +61,22 @@ export class WriteCommand extends Command {
     description: 'Override model ID',
   });
 
+  commit = Option.Boolean('--commit', false, {
+    description: 'Prompt to commit staged changes after message acceptance',
+  });
+
   async execute() {
     const repoPath = process.cwd();
 
     if (!(await hasStagedChanges(repoPath))) {
       error('No staged changes', 'Stage changes with git add before running write');
-      process.exit(EXIT_GENERAL_ERROR);
+      process.exit(EXIT_BAD_INPUT);
     }
 
     const aiConfig = resolveAIConfig({
       provider: this.provider,
       model: this.model,
-    });
+    } as Partial<AIConfig> & { provider?: string });
     const providerConfig = resolveProviderConfig();
 
     if (!this.noLlm) {
@@ -84,8 +90,8 @@ export class WriteCommand extends Command {
     let diff: string;
     try {
       diff = await getStagedDiff(repoPath);
-    } catch (err: any) {
-      error(err.message || 'Failed to read staged diff', 'Ensure you are in a git repository with staged changes (git add)');
+    } catch (err: unknown) {
+      error(err instanceof Error ? err.message : 'Failed to read staged diff', 'Ensure you are in a git repository with staged changes (git add)');
       process.exit(EXIT_GENERAL_ERROR);
     }
 
@@ -109,6 +115,18 @@ export class WriteCommand extends Command {
 
     if (message) {
       this.context.stdout.write(message + '\n');
+      if (this.commit) {
+        const confirmed = await promptConfirm('Commit staged changes with this message?', false);
+        if (confirmed) {
+          const result = await commitStagedChanges(repoPath, message);
+          if (result.success) {
+            this.context.stdout.write('[committed: ' + result.output + ']\n');
+          } else {
+            error('Commit failed', result.error || 'Try running `git commit` manually to see the full error.');
+            process.exit(EXIT_GENERAL_ERROR);
+          }
+        }
+      }
     } else {
       process.exit(EXIT_SUCCESS);
     }

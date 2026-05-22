@@ -27,7 +27,7 @@ const AnalysisSchema = z.object({
   score: z.number().min(1).max(10),
   issues: z.array(
     z.object({
-      category: z.string(),
+      category: z.enum(['type', 'scope', 'subject', 'body', 'convention', 'specificity', 'intent', 'clarity']),
       severity: z.enum(['critical', 'warning', 'suggestion']),
       message: z.string(),
     })
@@ -98,7 +98,7 @@ export async function analyzeCommitWithLLM(
   aiConfig: AIConfig,
   providerConfig: ProviderSpecificConfig
 ): Promise<LLMAnalysisResult> {
-  const model = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
+  const model: ReturnType<typeof getProvider> extends (model: string) => infer R ? R : never = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
   const prompt = buildAnalysisPrompt(commit, deterministic);
 
   try {
@@ -139,7 +139,7 @@ export async function generateCommitMessage(
   aiConfig: AIConfig,
   providerConfig: ProviderSpecificConfig
 ): Promise<string> {
-  const model = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
+  const model: ReturnType<typeof getProvider> extends (model: string) => infer R ? R : never = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
   const prompt = buildWritePrompt(diff, type, scope, description);
 
   const result = await generateText({
@@ -181,7 +181,7 @@ export async function generateChangeBullets(
   // Try LLM for richer bullets
   if (aiConfig && providerConfig) {
     try {
-      const model = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
+      const model: ReturnType<typeof getProvider> extends (model: string) => infer R ? R : never = aiConfig.__testModel ?? getProvider(aiConfig, providerConfig)(aiConfig.model);
       const result = await generateText({
         model,
         prompt: `Given the following git diff, generate 3-5 concise semantic bullets summarizing the changes. Each bullet should be one short sentence.\n\n${diff.slice(0, 8000)}`,

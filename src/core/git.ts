@@ -46,8 +46,8 @@ export async function getCommits(repoPath: string, count: number, noMerges = fal
   let output: string;
   try {
     output = await gitText(args, repoPath);
-  } catch (err: any) {
-    if (err.message?.includes('does not have any commits yet') || err.message?.includes('bad default revision')) {
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.message?.includes('does not have any commits yet') || err.message?.includes('bad default revision'))) {
       return [];
     }
     throw err;
@@ -172,4 +172,29 @@ export async function cloneRepo(url: string, dest: string, depth = 50, branch?: 
   if (exitCode !== 0) {
     throw new Error(`git clone failed with exit code ${exitCode}`);
   }
+}
+
+/**
+ * Commit staged changes with the given message.
+ * Uses Bun.spawn argv mode — never shell interpolation.
+ * Returns { success: true, output } on exit code 0.
+ * Returns { success: false, error: stderr } on non-zero.
+ */
+export async function commitStagedChanges(
+  repoPath: string,
+  message: string,
+): Promise<{ success: boolean; output?: string; error?: string }> {
+  const proc = Bun.spawn(['git', 'commit', '-m', message], {
+    cwd: repoPath,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: { ...process.env, GIT_EDITOR: 'true' },
+  });
+  const output = await new Response(proc.stdout).text();
+  const err = await new Response(proc.stderr).text();
+  const exitCode = await proc.exited;
+  if (exitCode === 0) {
+    return { success: true, output: output.trim() };
+  }
+  return { success: false, error: err.trim() || `git commit failed with exit code ${exitCode}` };
 }

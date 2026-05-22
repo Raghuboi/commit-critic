@@ -22,17 +22,17 @@ Output fields:
 - score: number (1-10)
 - issues: array of { category, severity, message }
 - suggestions: array of improvement strings
-- suggestion: string (optional) — the single best improvement tip, shown as "Better:"
+- suggestion: string (optional) — a concrete rewritten commit message in conventional commit format, shown as "Better:"
 - whyGood: string (optional) — one-line explanation of why the commit is good, shown when score >= 7`;
 
 export const FEW_SHOT_EXAMPLES = `
 Few-shot examples:
-- 1: "wip" — one word, no information
-- 2: "fixed bug" — vague, no scope or impact
-- 4: "Added new feature" — no type, no scope, no specifics
-- 6: "fix: handle auth errors" — CC format but no specifics
-- 8: "feat(api): add Redis caching for read endpoints" — Good CC, clear scope
-- 10: "feat(api): add Redis caching layer\n\n- Implement cache for read endpoints\n- Add TTL configuration\n- Improves response time by 200ms" — Perfect CC, body with specifics, measurable impact`;
+- 1: "wip" — one word, no information. Better: "feat: implement user authentication flow"
+- 2: "fixed bug" — vague, no scope or impact. Better: "fix(api): resolve null pointer in user validation"
+- 4: "Added new feature" — no type, no scope, no specifics. Better: "feat(dashboard): add real-time analytics widget"
+- 6: "fix: handle auth errors" — CC format but no specifics. Better: "fix(auth): handle expired JWT tokens in middleware"
+- 8: "feat(api): add Redis caching for read endpoints" — Good CC, clear scope. Why it's good: specific scope, imperative mood, clear purpose.
+- 10: "feat(api): add Redis caching layer\n\n- Implement cache for read endpoints\n- Add TTL configuration\n- Improves response time by 200ms" — Perfect CC, body with specifics, measurable impact. Why it's good: follows all conventions, body explains rationale with measurable impact.`;
 
 /**
  * Build the analysis prompt for a single commit.

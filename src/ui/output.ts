@@ -22,24 +22,16 @@ function c(enabled: boolean, fn: (s: string) => string, text: string): string {
  */
 export function renderAnalysis(results: AnalysisResult[], summary: AnalysisSummary): void {
   const useColor = !noColor();
-  const bad = results.filter(r => r.score < 5);
-  const warn = results.filter(r => r.score >= 5 && r.score < 7);
+  const needsWork = results.filter(r => r.score < 7);
   const good = results.filter(r => r.score >= 7);
 
   const line = c(useColor, pc.gray, '━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-  if (bad.length > 0) {
+  if (needsWork.length > 0) {
     console.log(`\n${line}`);
     console.log(c(useColor, pc.red, '💩 COMMITS THAT NEED WORK'));
     console.log(line);
-    for (const r of bad) renderCommit(r, useColor);
-  }
-
-  if (warn.length > 0) {
-    console.log(`\n${line}`);
-    console.log(c(useColor, pc.yellow, '⚠️  BORDERLINE COMMITS'));
-    console.log(line);
-    for (const r of warn) renderCommit(r, useColor);
+    for (const r of needsWork) renderCommit(r, useColor);
   }
 
   if (good.length > 0) {
@@ -59,22 +51,52 @@ export function renderCommit(result: AnalysisResult, useColor = !noColor()): voi
   const scoreColor = result.score >= 7 ? pc.green : result.score >= 5 ? pc.yellow : pc.red;
   console.log(`\nCommit: "${result.subject}" (${result.shortHash})`);
   console.log(`Score: ${useColor ? scoreColor(String(result.score)) : result.score}/10`);
-  for (const issue of result.issues) {
-    const icon = issue.severity === 'critical' ? '❌' : issue.severity === 'warning' ? '⚠️' : '💡';
-    console.log(`${icon} ${issue.message}`);
-    if (issue.suggestion) {
-      console.log(`   ${useColor ? pc.gray(`Better: ${issue.suggestion}`) : `Better: ${issue.suggestion}`}`);
+
+  const isGood = result.score >= 7;
+
+  if (!isGood) {
+    // Show all issues with Issue: label for commits that need work
+    for (const issue of result.issues) {
+      console.log(`Issue: ${issue.message}`);
+    }
+    // Show Better: once from the first issue that has a rewrite
+    const betterLine = result.suggestion
+      || result.issues.find(i => i.rewrite)?.rewrite;
+    if (betterLine) {
+      console.log(`Better: "${betterLine}"`);
+    }
+  } else {
+    // Show minor suggestions with emoji for well-written commits
+    for (const issue of result.issues) {
+      const icon = issue.severity === 'critical' ? '❌' : issue.severity === 'warning' ? '⚠️' : '💡';
+      console.log(`${icon} ${issue.message}`);
     }
   }
-  for (const s of result.suggestions) {
-    console.log(`   ${useColor ? pc.cyan(`Suggestion: ${s}`) : `Suggestion: ${s}`}`);
+
+  // Show Why it's good: for well-written commits
+  if (isGood) {
+    const why = result.whyGood || buildDeterministicWhyGood(result);
+    if (why) {
+      console.log(`Why it's good: ${why}`);
+    }
   }
-  if (result.suggestion) {
-    console.log(`   ${useColor ? pc.gray(`Better: ${result.suggestion}`) : `Better: ${result.suggestion}`}`);
-  }
-  if (result.whyGood && result.score >= 7) {
-    console.log(`   ${useColor ? pc.green(`Why it's good: ${result.whyGood}`) : `Why it's good: ${result.whyGood}`}`);
-  }
+}
+
+/**
+ * Build a deterministic "Why it's good" summary from scoring result.
+ */
+function buildDeterministicWhyGood(result: AnalysisResult): string | undefined {
+  const positives: string[] = [];
+  if (result.isConventionalCommit) positives.push('uses conventional commit format');
+  if (result.hasBody) positives.push('includes explanatory body');
+  if (result.subject.length >= 10 && result.subject.length <= 50) positives.push('concise subject');
+  if (result.issues.length === 0) positives.push('no quality issues detected');
+
+  if (positives.length === 0) return undefined;
+  // Capitalize first positive, join the rest
+  const first = positives[0][0].toUpperCase() + positives[0].slice(1);
+  if (positives.length === 1) return first;
+  return `${first}, ${positives.slice(1).join(', ')}`;
 }
 
 /**
@@ -88,10 +110,10 @@ export function renderSummary(summary: AnalysisSummary, useColor = !noColor()): 
   console.log(line);
   console.log(`Average score: ${summary.overallScore.toFixed(1)}/10`);
   console.log(`Passed: ${summary.passed} | Warnings: ${summary.warnings} | Errors: ${summary.errors}`);
-  console.log(`Vague commits: ${summary.vagueCommits}/${total} (${Math.round((summary.vagueCommits / total) * 100)}%)`);
-  console.log(`One-word commits: ${summary.oneWordCommits}/${total} (${Math.round((summary.oneWordCommits / total) * 100)}%)`);
-  console.log(`Conventional commits: ${summary.conventionalCommits}/${total} (${Math.round((summary.conventionalCommits / total) * 100)}%)`);
-  console.log(`Commits with body: ${summary.commitsWithBody}/${total} (${Math.round((summary.commitsWithBody / total) * 100)}%)`);
+  console.log(`Vague commits: ${summary.vagueCommits} (${Math.round((summary.vagueCommits / total) * 100)}%)`);
+  console.log(`One-word commits: ${summary.oneWordCommits} (${Math.round((summary.oneWordCommits / total) * 100)}%)`);
+  console.log(`Conventional commits: ${summary.conventionalCommits} (${Math.round((summary.conventionalCommits / total) * 100)}%)`);
+  console.log(`Commits with body: ${summary.commitsWithBody} (${Math.round((summary.commitsWithBody / total) * 100)}%)`);
   const d = summary.scoreDistribution;
   console.log(`Score distribution: ${d.excellent} excellent | ${d.good} good | ${d.average} average | ${d.poor} poor | ${d.terrible} terrible`);
   if (summary.llmFallbackCount > 0) {

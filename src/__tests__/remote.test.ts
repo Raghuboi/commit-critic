@@ -6,32 +6,17 @@ import { test, expect, describe } from 'bun:test';
 import { isValidRepoUrl } from '../core/remote';
 
 describe('isValidRepoUrl', () => {
-  test('accepts https URLs', () => {
+  test('accepts valid URLs (https, git@, file://, absolute paths)', () => {
     expect(isValidRepoUrl('https://github.com/user/repo.git')).toBe(true);
-  });
-
-  test('accepts git@ URLs', () => {
     expect(isValidRepoUrl('git@github.com:user/repo.git')).toBe(true);
-  });
-
-  test('accepts file:// URLs', () => {
     expect(isValidRepoUrl('file:///home/user/repo')).toBe(true);
-  });
-
-  test('rejects empty string', () => {
-    expect(isValidRepoUrl('')).toBe(false);
-  });
-
-  test('rejects random text', () => {
-    expect(isValidRepoUrl('not-a-url')).toBe(false);
-  });
-
-  test('rejects http URLs', () => {
-    expect(isValidRepoUrl('http://example.com/repo.git')).toBe(false);
-  });
-
-  test('accepts absolute local paths', () => {
     expect(isValidRepoUrl('/home/user/repo')).toBe(true);
+  });
+
+  test('rejects invalid URLs (empty, random text, http)', () => {
+    expect(isValidRepoUrl('')).toBe(false);
+    expect(isValidRepoUrl('not-a-url')).toBe(false);
+    expect(isValidRepoUrl('http://example.com/repo.git')).toBe(false);
   });
 });
 
@@ -55,6 +40,30 @@ describe('detectDefaultBranch', () => {
 
     // cleanup
     await Bun.$`rm -rf ${tempDir}`;
+  });
+
+  test('detects branch from bare repo', async () => {
+    const { detectDefaultBranch } = await import('../core/remote');
+    const { mkdtemp } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const bareDir = await mkdtemp(join(tmpdir(), 'commit-critic-bare-'));
+    const pushDir = await mkdtemp(join(tmpdir(), 'commit-critic-push-'));
+
+    await Bun.$`git init --bare`.cwd(bareDir);
+    await Bun.$`git init -b main`.cwd(pushDir);
+    await Bun.$`git config user.email "test@test.com"`.cwd(pushDir);
+    await Bun.$`git config user.name "Test"`.cwd(pushDir);
+    await Bun.$`echo "hello" > file.txt`.cwd(pushDir);
+    await Bun.$`git add .`.cwd(pushDir);
+    await Bun.$`git commit -m "initial"`.cwd(pushDir);
+    await Bun.$`git push ${bareDir} main`.cwd(pushDir);
+
+    const branch = await detectDefaultBranch(bareDir);
+    expect(branch).toBe('main');
+
+    // cleanup
+    await Bun.$`rm -rf ${bareDir} ${pushDir}`;
   });
 
   test('returns undefined for invalid path', async () => {

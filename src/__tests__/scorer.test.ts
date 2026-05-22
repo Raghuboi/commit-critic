@@ -42,11 +42,27 @@ describe('scoreCommit', () => {
     const result = scoreCommit(makeCommit('wip'));
     expect(result.score).toBeLessThanOrEqual(3);
     expect(result.issues.some(i => i.message.includes('single word'))).toBe(true);
+    expect(result.issues.some(i => i.rewrite && i.rewrite.includes('feat:'))).toBe(true);
   });
 
   test('catches fixed bug', () => {
     const result = scoreCommit(makeCommit('fixed bug'));
     expect(result.issues.some(i => i.message.toLowerCase().includes('vague'))).toBe(true);
+    expect(result.issues.some(i => i.rewrite && i.rewrite.includes('fix:'))).toBe(true);
+  });
+
+  test('provides rewrite for vague commit', () => {
+    const result = scoreCommit(makeCommit('update'));
+    const rewrite = result.issues.find(i => i.rewrite)?.rewrite;
+    expect(rewrite).toBeDefined();
+    expect(rewrite).toContain('feat:');
+  });
+
+  test('provides rewrite for missing conventional commit type', () => {
+    const result = scoreCommit(makeCommit('Added new feature'));
+    const rewrite = result.issues.find(i => i.category === 'convention')?.rewrite;
+    expect(rewrite).toBeDefined();
+    expect(rewrite).toContain('feat:');
   });
 
   test('detects non-imperative mood', () => {

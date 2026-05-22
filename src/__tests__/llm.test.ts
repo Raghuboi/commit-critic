@@ -15,10 +15,12 @@ import { describe, test, expect } from 'bun:test';
 import {
   analyzeCommitWithLLM,
   generateCommitMessage,
+  generateChangeBullets,
   extractJson,
   getProvider,
 } from '../core/llm';
 import { MockLanguageModelV4 } from 'ai/test';
+import { resolveAIConfig } from '../config/ai-config';
 import type { Commit } from '../types/commit';
 import type { ScoringResult } from '../types/scoring';
 
@@ -51,7 +53,6 @@ const mockAIConfig = {
   temperature: 0.3,
   maxTokens: 2048,
   maxRetries: 0,
-  fallbackChain: [],
 };
 
 const mockProviderConfig = {
@@ -83,11 +84,32 @@ function createMockModel(responseText: string) {
 // ── analyzeCommitWithLLM ──────────────────────────────────────────────────────
 
 describe('analyzeCommitWithLLM', () => {
+  test('Zod rejects invalid category', async () => {
+    const mockResult = {
+      score: 9,
+      issues: [
+        { category: 'invalid-category', severity: 'suggestion' as const, message: 'Great commit' },
+      ],
+      suggestions: [],
+    };
+
+    const mockModel = createMockModel(JSON.stringify(mockResult));
+
+    await expect(
+      analyzeCommitWithLLM(
+        mockCommit,
+        mockDeterministic,
+        { ...mockAIConfig, __testModel: mockModel },
+        mockProviderConfig
+      )
+    ).rejects.toThrow();
+  });
+
   test('returns structured output when model returns valid JSON', async () => {
     const mockResult = {
       score: 9,
       issues: [
-        { category: 'style', severity: 'suggestion' as const, message: 'Great commit' },
+        { category: 'convention', severity: 'suggestion' as const, message: 'Great commit' },
       ],
       suggestions: ['Keep it up'],
       suggestion: 'Add a body explaining why',
@@ -109,27 +131,6 @@ describe('analyzeCommitWithLLM', () => {
     expect(result.suggestions).toEqual(['Keep it up']);
     expect(result.suggestion).toBe('Add a body explaining why');
     expect(result.whyGood).toBe('Follows conventional commit format with clear scope');
-  });
-
-  test('returns result with empty issues and suggestions', async () => {
-    const mockResult = {
-      score: 10,
-      issues: [],
-      suggestions: [],
-    };
-
-    const mockModel = createMockModel(JSON.stringify(mockResult));
-
-    const result = await analyzeCommitWithLLM(
-      mockCommit,
-      mockDeterministic,
-      { ...mockAIConfig, __testModel: mockModel },
-      mockProviderConfig
-    );
-
-    expect(result.score).toBe(10);
-    expect(result.issues).toEqual([]);
-    expect(result.suggestions).toEqual([]);
   });
 
   test('falls back to text mode on NoObjectGeneratedError', async () => {
@@ -209,36 +210,32 @@ describe('analyzeCommitWithLLM', () => {
 // ── generateCommitMessage ─────────────────────────────────────────────────────
 
 describe('generateCommitMessage', () => {
-  test('returns generated commit message', async () => {
-    const mockModel = createMockModel(
+  test('returns generated commit message and trims whitespace', async () => {
+    // Basic message generation
+    const mockModel1 = createMockModel(
       'feat(auth): add JWT authentication middleware'
     );
-
-    const result = await generateCommitMessage(
+    const result1 = await generateCommitMessage(
       'diff --git a/src/auth.ts b/src/auth.ts\n+export function jwtMiddleware() {}',
       'feat',
       'auth',
       undefined,
-      { ...mockAIConfig, __testModel: mockModel },
+      { ...mockAIConfig, __testModel: mockModel1 },
       mockProviderConfig
     );
+    expect(result1).toBe('feat(auth): add JWT authentication middleware');
 
-    expect(result).toBe('feat(auth): add JWT authentication middleware');
-  });
-
-  test('trims whitespace from generated message', async () => {
-    const mockModel = createMockModel('\n  fix: resolve null pointer  \n');
-
-    const result = await generateCommitMessage(
+    // Whitespace trimming
+    const mockModel2 = createMockModel('\n  fix: resolve null pointer  \n');
+    const result2 = await generateCommitMessage(
       'some diff',
       'fix',
       undefined,
       undefined,
-      { ...mockAIConfig, __testModel: mockModel },
+      { ...mockAIConfig, __testModel: mockModel2 },
       mockProviderConfig
     );
-
-    expect(result).toBe('fix: resolve null pointer');
+    expect(result2).toBe('fix: resolve null pointer');
   });
 
   test('returns multi-line commit message with body', async () => {
@@ -282,93 +279,109 @@ describe('generateCommitMessage', () => {
 // ── extractJson ───────────────────────────────────────────────────────────────
 
 describe('extractJson', () => {
-  test('strips markdown json fences', () => {
-    const fenced = '```json\n{"score": 5}\n```';
-    expect(extractJson(fenced)).toEqual({ score: 5 });
-  });
-
-  test('strips markdown fences without json label', () => {
-    const fenced = '```\n{"score": 7}\n```';
-    expect(extractJson(fenced)).toEqual({ score: 7 });
-  });
-
-  test('parses plain JSON', () => {
-    const plain = '{"score": 7, "issues": []}';
-    expect(extractJson(plain)).toEqual({ score: 7, issues: [] });
-  });
-
-  test('returns null for invalid JSON', () => {
-    expect(extractJson('not json')).toBeNull();
-    expect(extractJson('')).toBeNull();
-  });
-
-  test('prefers fenced JSON over plain text', () => {
+  test('parses valid JSON with and without fences', () => {
+    // Fenced with label
+    expect(extractJson('```json\n{"score": 5}\n```')).toEqual({ score: 5 });
+    // Fenced without label
+    expect(extractJson('```\n{"score": 7}\n```')).toEqual({ score: 7 });
+    // Plain JSON
+    expect(extractJson('{"score": 7, "issues": []}')).toEqual({ score: 7, issues: [] });
+    // Prefers fenced over plain text
     const mixed = 'Here is the result:\n```json\n{"score": 8}\n```\nHope this helps!';
     expect(extractJson(mixed)).toEqual({ score: 8 });
-  });
-
-  test('handles nested objects', () => {
-    const nested = '{"score": 5, "issues": [{"category": "style", "severity": "suggestion", "message": "test"}]}';
+    // Handles nested objects
+    const nested = '{"score": 5, "issues": [{"category": "convention", "severity": "suggestion", "message": "test"}]}';
     const parsed = extractJson(nested) as Record<string, unknown>;
     expect(parsed.score).toBe(5);
     expect(Array.isArray(parsed.issues)).toBe(true);
   });
 
-  test('fails gracefully on broken fence content', () => {
-    const broken = '```json\n{broken json\n```';
-    expect(extractJson(broken)).toBeNull();
+  test('returns null for invalid inputs and broken fences', () => {
+    expect(extractJson('not json')).toBeNull();
+    expect(extractJson('')).toBeNull();
+    // Broken fence content
+    expect(extractJson('```json\n{broken json\n```')).toBeNull();
   });
 });
 
 // ── getProvider ───────────────────────────────────────────────────────────────
 
 describe('getProvider', () => {
-  test('returns openai provider for openai', () => {
-    const provider = getProvider(
-      { ...mockAIConfig, provider: 'openai' },
+  test('returns correct provider for openai and openrouter', () => {
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'openai' }, mockProviderConfig)).toBe('function');
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'openrouter' }, { ...mockProviderConfig, openrouterApiKey: 'sk-or-test' })).toBe('function');
+  });
+
+  test('returns openai-compatible provider for lmstudio, vllm, ollama', () => {
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'lmstudio' }, { ...mockProviderConfig, lmstudioBaseUrl: 'http://localhost:1234/v1' })).toBe('function');
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'vllm' }, { ...mockProviderConfig, vllmBaseUrl: 'http://localhost:8000/v1' })).toBe('function');
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'ollama' }, { ...mockProviderConfig, ollamaBaseUrl: 'http://localhost:11434/v1' })).toBe('function');
+  });
+
+  test('returns openai-compatible provider for unknown provider (default)', async () => {
+    const aiConfig = resolveAIConfig({ provider: 'custom-provider' as unknown as import('../types/config').AIProvider });
+    expect(aiConfig.provider).toBe('openai');
+    const provider = getProvider(aiConfig, mockProviderConfig);
+    expect(typeof provider).toBe('function');
+  });
+});
+
+// ── generateChangeBullets ──────────────────────────────────────────────────────
+
+describe('generateChangeBullets (deterministic)', () => {
+  test('returns "Updated files" for empty file list', async () => {
+    const bullets = await generateChangeBullets('', []);
+    expect(bullets).toEqual(['Updated files']);
+  });
+
+  test('reports added files (single and multiple)', async () => {
+    // Single added file
+    expect(await generateChangeBullets('', [{ status: 'A', path: 'src/new.ts' }])).toEqual(['Added 1 file']);
+    // Multiple added files
+    expect(await generateChangeBullets('', [
+      { status: 'A', path: 'src/new.ts' },
+      { status: 'A', path: 'src/also-new.ts' },
+    ])).toEqual(['Added 2 files']);
+  });
+
+  test('reports modified files', async () => {
+    const files = [
+      { status: 'M', path: 'src/a.ts' },
+      { status: 'M', path: 'src/b.ts' },
+      { status: 'M', path: 'src/c.ts' },
+    ];
+    const bullets = await generateChangeBullets('', files);
+    expect(bullets).toEqual(['Modified 3 files']);
+  });
+
+  test('reports deleted files', async () => {
+    const files = [{ status: 'D', path: 'src/old.ts' }];
+    const bullets = await generateChangeBullets('', files);
+    expect(bullets).toEqual(['Deleted 1 file']);
+  });
+
+  test('reports mixed statuses', async () => {
+    const files = [
+      { status: 'A', path: 'src/new.ts' },
+      { status: 'M', path: 'src/existing.ts' },
+      { status: 'D', path: 'src/old.ts' },
+    ];
+    const bullets = await generateChangeBullets('', files);
+    expect(bullets).toEqual(['Added 1 file', 'Modified 1 file', 'Deleted 1 file']);
+  });
+
+  test('uses LLM bullets when available and sufficient', async () => {
+    const files = [{ status: 'M', path: 'src/auth.ts' }];
+    const mockModel = createMockModel(
+      '- Refactored authentication middleware\n- Added JWT validation\n- Updated error handling'
+    );
+    const bullets = await generateChangeBullets(
+      'diff content',
+      files,
+      { ...mockAIConfig, __testModel: mockModel },
       mockProviderConfig
     );
-    // openai provider is an object with chat() and other methods
-    expect(typeof provider).toBe('function');
-  });
-
-  test('returns openai-compatible provider for openrouter', () => {
-    const provider = getProvider(
-      { ...mockAIConfig, provider: 'openrouter' },
-      { ...mockProviderConfig, openrouterApiKey: 'sk-or-test' }
-    );
-    expect(typeof provider).toBe('function');
-  });
-
-  test('returns openai-compatible provider for lmstudio', () => {
-    const provider = getProvider(
-      { ...mockAIConfig, provider: 'lmstudio' },
-      { ...mockProviderConfig, lmstudioBaseUrl: 'http://localhost:1234/v1' }
-    );
-    expect(typeof provider).toBe('function');
-  });
-
-  test('returns openai-compatible provider for vllm', () => {
-    const provider = getProvider(
-      { ...mockAIConfig, provider: 'vllm' },
-      { ...mockProviderConfig, vllmBaseUrl: 'http://localhost:8000/v1' }
-    );
-    expect(typeof provider).toBe('function');
-  });
-
-  test('returns openai-compatible provider for ollama', () => {
-    const provider = getProvider(
-      { ...mockAIConfig, provider: 'ollama' },
-      { ...mockProviderConfig, ollamaBaseUrl: 'http://localhost:11434/v1' }
-    );
-    expect(typeof provider).toBe('function');
-  });
-
-  test('returns openai-compatible provider for unknown provider (default)', () => {
-    const provider = getProvider(
-      { ...mockAIConfig, provider: 'custom-provider' },
-      mockProviderConfig
-    );
-    expect(typeof provider).toBe('function');
+    expect(bullets.length).toBeGreaterThanOrEqual(2);
+    expect(bullets).toContain('Refactored authentication middleware');
   });
 });

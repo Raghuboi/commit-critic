@@ -5,7 +5,7 @@
  * Provides: text, select inputs.
  */
 
-import { select, input } from '@inquirer/prompts';
+import { select, input, confirm } from '@inquirer/prompts';
 
 const COMMIT_TYPES = [
   { name: 'feat', value: 'feat', description: 'A new feature' },
@@ -70,4 +70,13 @@ export async function promptAction(suggestion: string): Promise<{ action: 'accep
  */
 export async function promptEdit(current: string): Promise<string> {
   return input({ message: 'Edit commit message:', default: current });
+}
+
+/**
+ * Prompt for yes/no confirmation.
+ * @param message The confirmation question to display
+ * @param defaultYes If true, Enter selects yes; if false, Enter selects no
+ */
+export async function promptConfirm(message: string, defaultYes = false): Promise<boolean> {
+  return confirm({ message, default: defaultYes });
 }

@@ -10,7 +10,9 @@
  */
 
 import { getEnv, getEnvBool, getEnvNumber } from '../utils/env';
-import type { AIConfig, ProviderSpecificConfig } from '../types/config';
+import type { AIConfig, AIProvider, ProviderSpecificConfig } from '../types/config';
+
+const VALID_PROVIDERS: Set<string> = new Set(['openai', 'openrouter', 'lmstudio', 'vllm', 'ollama']);
 
 const KEY_MAP: Record<string, keyof ProviderSpecificConfig> = {
   'OPENAI_API_KEY': 'openaiApiKey',
@@ -32,10 +34,10 @@ const PROVIDER_KEYS: Record<string, string[]> = {
 /**
  * Resolve AI configuration from all sources.
  */
-export function resolveAIConfig(overrides?: Partial<AIConfig>): AIConfig {
-  const provider = overrides?.provider ?? getEnv('AI_PROVIDER', 'openai')!;
-  const model = overrides?.model ?? getEnv('AI_MODEL', 'gpt-4.1')!;
-  const fallbackChainRaw = overrides?.fallbackChain ?? (getEnv('AI_FALLBACK_CHAIN')?.split(',').map(s => s.trim()).filter(Boolean) || []);
+export function resolveAIConfig(overrides?: Partial<AIConfig> & { provider?: string }): AIConfig {
+  const providerRaw = overrides?.provider ?? getEnv('AI_PROVIDER', 'openai');
+  const provider: AIProvider = VALID_PROVIDERS.has(providerRaw) ? providerRaw as AIProvider : 'openai';
+  const model = overrides?.model ?? getEnv('AI_MODEL', 'gpt-4.1');
 
   return {
     provider,
@@ -44,7 +46,6 @@ export function resolveAIConfig(overrides?: Partial<AIConfig>): AIConfig {
     temperature: overrides?.temperature ?? getEnvNumber('AI_TEMPERATURE', 0.1),
     maxTokens: overrides?.maxTokens ?? getEnvNumber('AI_MAX_TOKENS', 4096),
     maxRetries: overrides?.maxRetries ?? getEnvNumber('AI_MAX_RETRIES', 2),
-    fallbackChain: fallbackChainRaw,
   };
 }
 
