@@ -1,5 +1,5 @@
 /**
- * Scoring rubric unit tests
+ * Commit quality scoring unit tests
  */
 
 import { test, expect, describe } from 'bun:test';

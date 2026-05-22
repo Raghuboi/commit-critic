@@ -277,9 +277,25 @@ describe('getProvider', () => {
     expect(typeof getProvider({ ...mockAIConfig, provider: 'openrouter' }, { ...mockProviderConfig, openrouterApiKey: 'sk-or-test' })).toBe('function');
   });
 
-  test('returns openai-compatible provider for local and local aliases', () => {
-    expect(typeof getProvider({ ...mockAIConfig, provider: 'local', requestedProvider: 'local' }, mockProviderConfig)).toBe('function');
-    expect(typeof getProvider({ ...mockAIConfig, provider: 'local', requestedProvider: 'llamacpp' }, mockProviderConfig)).toBe('function');
+  test('passes resolved OpenAI API key into provider instance', () => {
+    const originalOpenAIKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'sk-env-different';
+    try {
+      const provider = getProvider(
+        { ...mockAIConfig, provider: 'openai' },
+        { ...mockProviderConfig, openaiApiKey: 'sk-from-generic-ai-api-key' }
+      ) as unknown as (model: string) => { config: { headers: () => Record<string, string> } };
+      const model = provider('gpt-4.1');
+      expect(model.config.headers().authorization).toBe('Bearer sk-from-generic-ai-api-key');
+    } finally {
+      if (originalOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = originalOpenAIKey;
+    }
+  });
+
+  test('returns openai-compatible provider for local presets', () => {
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'local' }, mockProviderConfig)).toBe('function');
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'llamacpp' }, mockProviderConfig)).toBe('function');
   });
 
   test('unknown provider resolves to openai default', async () => {

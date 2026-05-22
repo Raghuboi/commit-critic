@@ -4,14 +4,13 @@
  * Providers:
  * - OpenAI through @ai-sdk/openai
  * - OpenRouter through OpenAI-compatible chat API
- * - Local OpenAI-compatible servers through the canonical `local` provider
- *
- * Local provider aliases (`lmstudio`, `vllm`, `ollama`, `llamacpp`) are normalized in config.
+ * - Local OpenAI-compatible servers through provider-specific presets
  */
 
 import { generateText, NoObjectGeneratedError, Output } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import type { OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
 import { z } from 'zod';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
@@ -78,13 +77,17 @@ const LooseAnalysisSchema = z.object({
   whyGood: NullableString,
 }).passthrough();
 
-export function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig) {
-  const definition = getProviderDefinition(aiConfig.requestedProvider ?? aiConfig.provider);
+function createOpenAIProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig) {
+  const definition = getProviderDefinition(aiConfig.provider);
+  return createOpenAI({
+    apiKey: getProviderApiKey(definition.name, providerConfig),
+    baseURL: getProviderBaseUrl(definition.name, providerConfig),
+    headers: definition.headers,
+  });
+}
 
-  if (definition.runtimeProvider === 'openai') {
-    return openai;
-  }
-
+function createCompatibleProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): OpenAICompatibleProvider {
+  const definition = getProviderDefinition(aiConfig.provider);
   return createOpenAICompatible({
     name: definition.name,
     baseURL: getProviderBaseUrl(definition.name, providerConfig),
@@ -94,25 +97,26 @@ export function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecific
   });
 }
 
+export function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig) {
+  const definition = getProviderDefinition(aiConfig.provider);
+  return definition.transport === 'openai'
+    ? createOpenAIProvider(aiConfig, providerConfig)
+    : createCompatibleProvider(aiConfig, providerConfig);
+}
+
 function getModel(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): LanguageModelV4 {
   if (aiConfig.__testModel) return aiConfig.__testModel;
 
-  const definition = getProviderDefinition(aiConfig.requestedProvider ?? aiConfig.provider);
-  if (definition.runtimeProvider === 'openai') {
-    return openai(aiConfig.model);
+  const definition = getProviderDefinition(aiConfig.provider);
+
+  if (definition.transport === 'openai') {
+    return createOpenAIProvider(aiConfig, providerConfig)(aiConfig.model);
   }
 
-  const provider = createOpenAICompatible({
-    name: definition.name,
-    baseURL: getProviderBaseUrl(definition.name, providerConfig),
-    apiKey: getProviderApiKey(definition.name, providerConfig) ?? 'not-required',
-    supportsStructuredOutputs: definition.supportsStructuredOutputs,
-    headers: definition.headers,
-  });
-
-  // llama.cpp/Qwen reasoning models often expose final text through
-  // /v1/completions while /v1/chat/completions may emit only reasoning parts.
-  if (definition.runtimeProvider === 'local') {
+  const provider = createCompatibleProvider(aiConfig, providerConfig);
+  if (definition.transport === 'compatible-completion') {
+    // llama.cpp/Qwen reasoning models often expose final text through
+    // /v1/completions while /v1/chat/completions may emit only reasoning parts.
     return provider.completionModel(aiConfig.model);
   }
 
@@ -128,7 +132,7 @@ export async function analyzeCommitWithLLM(
 ): Promise<LLMAnalysisResult> {
   const model = getModel(aiConfig, providerConfig);
   const prompt = buildAnalysisPrompt(commit, deterministic);
-  const supportsStructuredOutputs = getProviderDefinition(aiConfig.requestedProvider ?? aiConfig.provider).supportsStructuredOutputs;
+  const supportsStructuredOutputs = getProviderDefinition(aiConfig.provider).supportsStructuredOutputs;
 
   if (supportsStructuredOutputs) {
     try {

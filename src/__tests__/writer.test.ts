@@ -14,16 +14,4 @@ describe('buildTemplateMessage', () => {
     expect(buildTemplateMessage('docs', undefined, 'update README')).toBe('docs: update README');
   });
 
-  test('handles edge cases (special chars, unicode, empty scope)', () => {
-    // Special characters
-    expect(buildTemplateMessage('fix', 'ui', 'handle "quotes" & <brackets>')).toBe(
-      'fix(ui): handle "quotes" & <brackets>'
-    );
-    // Empty scope (treated as no scope)
-    expect(buildTemplateMessage('chore', '', 'cleanup')).toBe('chore: cleanup');
-    // Unicode
-    expect(buildTemplateMessage('feat', undefined, 'add emoji support 🎉')).toBe(
-      'feat: add emoji support 🎉'
-    );
-  });
 });

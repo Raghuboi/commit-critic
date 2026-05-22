@@ -83,6 +83,15 @@ function findVagueKeyword(subject: string): string | undefined {
   return normalizedWords.find((word) => VAGUE_KEYWORDS.has(word));
 }
 
+function buildRewrite(subject: string, type = getDerivedType(subject)): string {
+  const [, messagePart] = ensureConventionalPrefix(subject, type);
+  const duplicatePrefix = `${type} `;
+  const deduped = messagePart.toLowerCase().startsWith(duplicatePrefix)
+    ? messagePart.slice(duplicatePrefix.length)
+    : messagePart;
+  return `${type}: ${deduped || 'describe the change'}`;
+}
+
 function buildVagueRewrite(subject: string, vagueKeyword: string): string {
   const derivedType = getDerivedType(subject);
   const normalizedKeyword = vagueKeyword.toLowerCase();
@@ -99,27 +108,15 @@ function buildVagueRewrite(subject: string, vagueKeyword: string): string {
     return `${derivedType}: describe the updated component and outcome`;
   }
 
-  const imperativeSubject = toImperative(subject);
-  const [, msgPart] = ensureConventionalPrefix(imperativeSubject, derivedType);
-  const duplicatePrefix = `${derivedType} `;
-  const deduped = msgPart.toLowerCase().startsWith(duplicatePrefix)
-    ? msgPart.slice(duplicatePrefix.length)
-    : msgPart;
-  return `${derivedType}: ${deduped || 'describe the change'}`;
+  return buildRewrite(toImperative(subject), derivedType);
 }
 
 function buildConventionalRewrite(subject: string): string {
   const vagueKeyword = findVagueKeyword(subject);
   if (vagueKeyword) return buildVagueRewrite(subject, vagueKeyword);
 
-  const derivedType = getDerivedType(subject);
   const cleaned = removeTrailingPeriod(lowercaseFirstChar(toImperative(subject)));
-  const [, msgPart] = ensureConventionalPrefix(cleaned, derivedType);
-  const duplicatePrefix = `${derivedType} `;
-  const deduped = msgPart.toLowerCase().startsWith(duplicatePrefix)
-    ? msgPart.slice(duplicatePrefix.length)
-    : msgPart;
-  return `${derivedType}: ${deduped || 'describe the change'}`;
+  return buildRewrite(cleaned);
 }
 
 /**

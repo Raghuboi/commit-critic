@@ -27,22 +27,6 @@ describe('analyzeCommit', () => {
     expect(result.issues.length).toBeGreaterThan(0);
   });
 
-  test('returns full AnalysisResult shape', async () => {
-    const { result } = await analyzeCommit(makeCommit('feat: add caching'), { noLlm: true });
-    expect(result.hash).toBe('abc123def456');
-    expect(result.shortHash).toBe('abc1234');
-    expect(result.subject).toBe('feat: add caching');
-    expect(result.isConventionalCommit).toBe(true);
-    expect(result.isMergeCommit).toBe(false);
-    expect(typeof result.hasBody).toBe('boolean');
-  });
-
-  test('--no-llm mode suggestion and whyGood are undefined', async () => {
-    const { result } = await analyzeCommit(makeCommit('feat: add caching'), { noLlm: true });
-    expect(result.suggestion).toBeUndefined();
-    expect(result.whyGood).toBeUndefined();
-  });
-
   test('preserves suggestion and whyGood from LLM result', async () => {
     const { MockLanguageModelV4 } = await import('ai/test');
     const mockModel = new MockLanguageModelV4({

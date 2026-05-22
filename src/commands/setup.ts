@@ -9,10 +9,10 @@ import { select, input, confirm } from '@inquirer/prompts';
 import { readFile, writeFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { resolveAIConfig, resolveProviderConfig, maskKey, validateAIConfig } from '../config/ai-config';
-import { getProviderApiKey, getProviderDefinition, SETUP_PROVIDERS } from '../config/providers';
+import { getProviderApiKey, getProviderBaseUrl, getProviderDefinition, isLocalProvider, SETUP_PROVIDERS } from '../config/providers';
 import { noColor } from '../utils/env';
 import { EXIT_AUTH_ERROR } from '../utils/exit-codes';
-import type { AIProviderInput } from '../types/config';
+import type { AIProvider } from '../types/config';
 
 export class SetupCommand extends Command {
   static paths = [['setup']];
@@ -47,11 +47,11 @@ export class SetupCommand extends Command {
     stdout.write('─'.repeat(40) + '\n');
 
     const aiConfig = resolveAIConfig();
-    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
-    const currentBaseUrl = providerConfig.localBaseUrl && aiConfig.provider === 'local' ? providerConfig.localBaseUrl : undefined;
-    const currentKey = getCurrentApiKey(aiConfig.provider, providerConfig);
+    const providerConfig = resolveProviderConfig(aiConfig.provider);
+    const currentBaseUrl = isLocalProvider(aiConfig.provider) ? getProviderBaseUrl(aiConfig.provider, providerConfig) : undefined;
+    const currentKey = getProviderApiKey(aiConfig.provider, providerConfig);
 
-    stdout.write(`Provider:  ${aiConfig.provider}${aiConfig.requestedProvider && aiConfig.requestedProvider !== aiConfig.provider ? ` (${aiConfig.requestedProvider} alias)` : ''}\n`);
+    stdout.write(`Provider:  ${aiConfig.provider}\n`);
     stdout.write(`Model:     ${aiConfig.model}\n`);
     if (currentBaseUrl) stdout.write(`Base URL:  ${currentBaseUrl}\n`);
     if (currentKey) stdout.write(`API Key:   ${maskKey(currentKey)}\n`);
@@ -78,7 +78,7 @@ export class SetupCommand extends Command {
     }
 
     stdout.write('\n');
-    const provider = await select<AIProviderInput>({
+    const provider = await select<AIProvider>({
       message: 'Select AI provider:',
       choices: SETUP_PROVIDERS.map((providerName) => {
         const definition = getProviderDefinition(providerName);
@@ -92,7 +92,7 @@ export class SetupCommand extends Command {
 
     const envValues: Record<string, string> = { AI_PROVIDER: provider };
 
-    if (provider === 'local') {
+    if (isLocalProvider(provider)) {
       const baseUrl = await input({
         message: 'OpenAI-compatible base URL:',
         default: currentBaseUrl ?? getProviderDefinition(provider).defaultBaseUrl,
@@ -141,10 +141,6 @@ export class SetupCommand extends Command {
       stdout.write('\nNo files changed. Copy the values above into your shell or .env file.\n');
     }
   }
-}
-
-function getCurrentApiKey(provider: AIProviderInput, config: ReturnType<typeof resolveProviderConfig>): string | undefined {
-  return getProviderApiKey(provider, config);
 }
 
 async function updateEnvFile(path: string, values: Record<string, string>): Promise<void> {

@@ -94,7 +94,7 @@ export class AnalyzeCommand extends Command {
       provider: this.provider,
       model: this.model,
     } as Partial<AIConfig> & { provider?: string });
-    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
+    const providerConfig = resolveProviderConfig(aiConfig.provider);
 
     if (!this.noLlm) {
       const validationError = validateAIConfig(aiConfig);

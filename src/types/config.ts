@@ -3,17 +3,12 @@
  */
 
 /** Public provider surface. */
-export type AIProvider = 'openai' | 'openrouter' | 'local';
-
-/** Backward-compatible aliases accepted from flags and env vars. */
-export type AIProviderInput = AIProvider | 'lmstudio' | 'vllm' | 'ollama' | 'llamacpp';
+export type AIProvider = 'openai' | 'openrouter' | 'local' | 'lmstudio' | 'vllm' | 'ollama' | 'llamacpp';
 
 /** AI provider configuration. */
 export interface AIConfig {
-  /** Canonical provider name used by the runtime. */
+  /** Provider name used by provider registry and runtime. */
   provider: AIProvider;
-  /** Original provider input after validation; aliases map to provider: "local". */
-  requestedProvider?: AIProviderInput;
   /** Model ID within the provider. */
   model: string;
   /** Fail fast on LLM errors. */

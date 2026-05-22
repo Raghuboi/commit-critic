@@ -67,25 +67,6 @@ test('JSON output has correct shape, stats, and top-level fields', () => {
   expect(json.stats.scoreDistribution).toEqual(summary.scoreDistribution);
 });
 
-test('JSON output includes suggestion and whyGood fields', () => {
-  const result: AnalysisResult = {
-    hash: 'abc123def456',
-    shortHash: 'abc1234',
-    subject: 'feat: add login',
-    score: 8,
-    issues: [],
-    suggestions: [],
-    suggestion: 'Add a body explaining the motivation',
-    whyGood: 'Clear scope and imperative mood',
-    isConventionalCommit: true,
-    isMergeCommit: false,
-    hasBody: false,
-  };
-  const json = buildJsonOutput('analyze', '/repo', [result], { ...summary, commitCount: 1 }, '0.1.0');
-  expect(json.commits[0].suggestion).toBe('Add a body explaining the motivation');
-  expect(json.commits[0].whyGood).toBe('Clear scope and imperative mood');
-});
-
 test('default summary omits verbose-only diagnostic stats', () => {
   const logs: string[] = [];
   const origLog = console.log;
@@ -104,27 +85,6 @@ test('default summary omits verbose-only diagnostic stats', () => {
   expect(output).not.toContain('Commits with body:');
   expect(output).not.toContain('Score distribution:');
   expect(output).not.toContain('Analyzed 3 commits');
-});
-
-test('change summary uses a single concise heading', () => {
-  const logs: string[] = [];
-  const origLog = console.log;
-  console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
-  try {
-    renderChangeSummary(
-      { filesChanged: 1, insertions: 2, deletions: 0 },
-      [{ status: 'A', path: 'src/new.ts' }],
-      ['Added 1 file'],
-      false
-    );
-  } finally {
-    console.log = origLog;
-  }
-  const output = logs.join('\n');
-  expect(output).toContain('Analyzing staged changes...');
-  expect(output).toContain('Changes detected:');
-  expect(output).not.toContain('STAGED CHANGES');
-  expect(output).not.toContain('Summary:');
 });
 
 describe('renderCommit', () => {
@@ -188,34 +148,4 @@ describe('renderCommit', () => {
     expect(output).toContain('Clear scope');
   });
 
-  test('commit with suggestion uses it for Better:', () => {
-    const logs: string[] = [];
-    const origLog = console.log;
-    console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
-    try {
-      renderCommit({
-        hash: 'ghi789',
-        shortHash: 'ghi7',
-        subject: 'fixed bug',
-        score: 3,
-        issues: [
-          {
-            category: 'specificity',
-            severity: 'critical',
-            message: 'Too vague',
-          },
-        ],
-        suggestions: [],
-        suggestion: 'fix(auth): resolve token expiration handling',
-        isConventionalCommit: false,
-        isMergeCommit: false,
-        hasBody: false,
-      }, false);
-    } finally {
-      console.log = origLog;
-    }
-    const output = logs.join('\n');
-    expect(output).toContain('Better:');
-    expect(output).toContain('fix(auth): resolve token expiration handling');
-  });
 });

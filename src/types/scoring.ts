@@ -1,5 +1,5 @@
 /**
- * Scoring rubric types
+ * Commit quality scoring types
  */
 
 /**

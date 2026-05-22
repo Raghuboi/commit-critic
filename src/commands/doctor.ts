@@ -12,16 +12,7 @@ import { resolveAIConfig, validateAIConfig, resolveProviderConfig, maskKey } fro
 import pc from 'picocolors';
 import { noColor } from '../utils/env';
 import { EXIT_SUCCESS, EXIT_GENERAL_ERROR } from '../utils/exit-codes';
-import { getProviderApiKey, getProviderBaseUrl } from '../config/providers';
-import type { AIProviderInput, ProviderSpecificConfig } from '../types/config';
-
-function getBaseUrl(provider: AIProviderInput | undefined, config: ProviderSpecificConfig): string {
-  return getProviderBaseUrl(provider, config);
-}
-
-function getApiKey(provider: AIProviderInput | undefined, config: ProviderSpecificConfig): string | undefined {
-  return getProviderApiKey(provider, config);
-}
+import { getProviderApiKey, getProviderBaseUrl, isLocalProvider } from '../config/providers';
 
 function extractModelIds(payload: unknown): string[] {
   if (!payload || typeof payload !== 'object') return [];
@@ -76,7 +67,7 @@ export class DoctorCommand extends Command {
     check('Repository', repo, repo ? 'Git repository detected' : 'Not a git repository', 'Run inside a git repo or use analyze --url');
 
     const aiConfig = resolveAIConfig();
-    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
+    const providerConfig = resolveProviderConfig(aiConfig.provider);
     const validationError = validateAIConfig(aiConfig);
     check(
       'Provider config',
@@ -88,13 +79,13 @@ export class DoctorCommand extends Command {
 
     if (providerConfig.openaiApiKey) this.context.stdout.write(`  OPENAI_API_KEY=${maskKey(providerConfig.openaiApiKey)}\n`);
     if (providerConfig.openrouterApiKey) this.context.stdout.write(`  OPENROUTER_API_KEY=${maskKey(providerConfig.openrouterApiKey)}\n`);
-    if (providerConfig.localBaseUrl && aiConfig.provider === 'local') this.context.stdout.write(`  AI_BASE_URL=${providerConfig.localBaseUrl}\n`);
-    if (providerConfig.localApiKey && aiConfig.provider === 'local') this.context.stdout.write(`  LOCAL_API_KEY=${maskKey(providerConfig.localApiKey)}\n`);
+    if (providerConfig.localBaseUrl && isLocalProvider(aiConfig.provider)) this.context.stdout.write(`  AI_BASE_URL=${providerConfig.localBaseUrl}\n`);
+    if (providerConfig.localApiKey && isLocalProvider(aiConfig.provider)) this.context.stdout.write(`  LOCAL_API_KEY=${maskKey(providerConfig.localApiKey)}\n`);
 
     if (!validationError) {
-      const baseUrl = getBaseUrl(aiConfig.requestedProvider ?? aiConfig.provider, providerConfig);
+      const baseUrl = getProviderBaseUrl(aiConfig.provider, providerConfig);
       const headers: Record<string, string> = {};
-      const apiKey = getApiKey(aiConfig.requestedProvider ?? aiConfig.provider, providerConfig);
+      const apiKey = getProviderApiKey(aiConfig.provider, providerConfig);
       if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
       try {
@@ -105,7 +96,7 @@ export class DoctorCommand extends Command {
         clearTimeout(timer);
         const ms = Date.now() - start;
         check('Connectivity', resp.ok, `${baseUrl} (${ms}ms)`, resp.ok ? undefined : `Server returned ${resp.status}`, false);
-        if (resp.ok && aiConfig.provider === 'local') {
+        if (resp.ok && isLocalProvider(aiConfig.provider)) {
           const modelIds = extractModelIds(await resp.json());
           if (modelIds.length > 0) {
             this.context.stdout.write(`  Available local models: ${modelIds.slice(0, 5).join(', ')}\n`);

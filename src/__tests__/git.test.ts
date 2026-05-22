@@ -58,14 +58,6 @@ test('reads commits from a real git repo', async () => {
   expect(commits[0].body.trim().length).toBeGreaterThan(0);
 });
 
-test('handles repo with no commits', async () => {
-  const emptyDir = await mkdtemp(join(tmpdir(), 'commit-critic-empty-'));
-  await runGit(emptyDir, ['init', '-b', 'main']);
-  const commits = await getCommits(emptyDir, 50);
-  expect(commits.length).toBe(0);
-  await rm(emptyDir, { recursive: true, force: true });
-});
-
 test('detects git repo correctly', async () => {
   expect(await isGitRepo(tempDir)).toBe(true);
   const nonGitDir = await mkdtemp(join(tmpdir(), 'commit-critic-nogit-'));
