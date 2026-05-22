@@ -1,14 +1,9 @@
 /**
- * DoctorCommand — health check
+ * DoctorCommand — health check for Git and LLM configuration.
  *
- * Checks:
- * 1. Git binary availability
- * 2. Current directory is a git repo
- * 3. LLM provider config (env vars)
- * 4. LLM provider connectivity (optional lightweight call)
- *
- * Output: color-coded health status with fix suggestions
- * Exit: 0 if critical checks pass, 1 if Git/repo checks fail
+ * Critical checks: git binary and repository detection.
+ * Warning checks: provider config and connectivity. A missing API key should not
+ * make `doctor` unusable as a setup aid.
  */
 
 import { Command } from 'clipanion';
@@ -17,53 +12,38 @@ import { resolveAIConfig, validateAIConfig, resolveProviderConfig, maskKey } fro
 import pc from 'picocolors';
 import { noColor } from '../utils/env';
 import { EXIT_SUCCESS, EXIT_GENERAL_ERROR } from '../utils/exit-codes';
-import type { AIProvider } from '../types/config';
+import { getProviderApiKey, getProviderBaseUrl } from '../config/providers';
+import type { AIProviderInput, ProviderSpecificConfig } from '../types/config';
 
-/**
- * Get the base URL for a given provider.
- */
-function getBaseUrl(provider: AIProvider, config: ReturnType<typeof resolveProviderConfig>): string {
-  switch (provider) {
-    case 'openai':
-      return 'https://api.openai.com/v1';
-    case 'openrouter':
-      return 'https://openrouter.ai/api/v1';
-    case 'lmstudio':
-      return config.lmstudioBaseUrl ?? 'http://localhost:1234/v1';
-    case 'vllm':
-      return config.vllmBaseUrl ?? 'http://localhost:8000/v1';
-    case 'ollama':
-      return config.ollamaBaseUrl ?? 'http://localhost:11434/v1';
-    case 'llamacpp':
-      return config.llamacppBaseUrl ?? 'http://localhost:8081/v1';
-    default:
-      return 'http://localhost:8000/v1';
-  }
+function getBaseUrl(provider: AIProviderInput | undefined, config: ProviderSpecificConfig): string {
+  return getProviderBaseUrl(provider, config);
 }
 
-/**
- * Get the API key for a given provider.
- */
-function getApiKey(provider: AIProvider, config: ReturnType<typeof resolveProviderConfig>): string | undefined {
-  switch (provider) {
-    case 'openai':
-      return config.openaiApiKey;
-    case 'openrouter':
-      return config.openrouterApiKey;
-    case 'vllm':
-      return config.vllmApiKey;
-    default:
-      return undefined;
-  }
+function getApiKey(provider: AIProviderInput | undefined, config: ProviderSpecificConfig): string | undefined {
+  return getProviderApiKey(provider, config);
+}
+
+function extractModelIds(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const data = 'data' in payload ? (payload as { data?: unknown }).data : undefined;
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((item) => {
+      if (!item || typeof item !== 'object') return undefined;
+      const id = (item as { id?: unknown }).id;
+      return typeof id === 'string' ? id : undefined;
+    })
+    .filter((id): id is string => Boolean(id));
 }
 
 export class DoctorCommand extends Command {
   static paths = [['doctor'], ['--doctor']];
   static usage = Command.Usage({
     category: 'Diagnostics',
-    description: 'Run health checks',
+    description: 'Run Git and LLM provider health checks',
     details: `
-      Verifies git availability, repo detection, and LLM provider configuration.
+      Verifies git availability, repository detection, provider environment variables,
+      and provider connectivity when configuration is present.
     `,
     examples: [
       ['Run health checks', 'commit-critic doctor'],
@@ -83,7 +63,6 @@ export class DoctorCommand extends Command {
       if (!pass && critical) ok = false;
     };
 
-    // Git binary
     try {
       const proc = Bun.spawn(['git', '--version'], { stdout: 'pipe', stderr: 'pipe' });
       const exitCode = await proc.exited;
@@ -92,51 +71,33 @@ export class DoctorCommand extends Command {
       check('Git', false, 'Not found', 'Install git and ensure it is in your PATH');
     }
 
-    // Git repo
     const repoPath = process.cwd();
     const repo = await isGitRepo(repoPath);
-    check('Repository', repo, repo ? 'Git repository detected' : 'Not a git repository', 'Run inside a git repo or use --url');
+    check('Repository', repo, repo ? 'Git repository detected' : 'Not a git repository', 'Run inside a git repo or use analyze --url');
 
-    // Provider config
     const aiConfig = resolveAIConfig();
-    const providerConfig = resolveProviderConfig();
+    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
     const validationError = validateAIConfig(aiConfig);
     check(
       'Provider config',
       !validationError,
       validationError ? validationError : `${aiConfig.provider} / ${aiConfig.model}`,
-      validationError ? 'Set the required environment variable or use --no-llm' : undefined,
+      validationError ? 'Run `commit-critic setup` or export the required environment variables.' : undefined,
       false
     );
 
-    // Show env vars (masked)
-    if (providerConfig.openaiApiKey) {
-      this.context.stdout.write(`  OPENAI_API_KEY=${maskKey(providerConfig.openaiApiKey)}\n`);
-    }
-    if (providerConfig.openrouterApiKey) {
-      this.context.stdout.write(`  OPENROUTER_API_KEY=${maskKey(providerConfig.openrouterApiKey)}\n`);
-    }
-    if (providerConfig.lmstudioBaseUrl) {
-      this.context.stdout.write(`  LM_STUDIO_BASE_URL=${providerConfig.lmstudioBaseUrl}\n`);
-    }
-    if (providerConfig.vllmBaseUrl) {
-      this.context.stdout.write(`  VLLM_BASE_URL=${providerConfig.vllmBaseUrl}\n`);
-    }
-    if (providerConfig.ollamaBaseUrl) {
-      this.context.stdout.write(`  OLLAMA_BASE_URL=${providerConfig.ollamaBaseUrl}\n`);
-    }
-    if (providerConfig.llamacppBaseUrl) {
-      this.context.stdout.write(`  LLAMACPP_BASE_URL=${providerConfig.llamacppBaseUrl}\n`);
-    }
+    if (providerConfig.openaiApiKey) this.context.stdout.write(`  OPENAI_API_KEY=${maskKey(providerConfig.openaiApiKey)}\n`);
+    if (providerConfig.openrouterApiKey) this.context.stdout.write(`  OPENROUTER_API_KEY=${maskKey(providerConfig.openrouterApiKey)}\n`);
+    if (providerConfig.localBaseUrl && aiConfig.provider === 'local') this.context.stdout.write(`  AI_BASE_URL=${providerConfig.localBaseUrl}\n`);
+    if (providerConfig.localApiKey && aiConfig.provider === 'local') this.context.stdout.write(`  LOCAL_API_KEY=${maskKey(providerConfig.localApiKey)}\n`);
 
-    // Connectivity check
     if (!validationError) {
-      try {
-        const baseUrl = getBaseUrl(aiConfig.provider, providerConfig);
-        const headers: Record<string, string> = {};
-        const apiKey = getApiKey(aiConfig.provider, providerConfig);
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      const baseUrl = getBaseUrl(aiConfig.requestedProvider ?? aiConfig.provider, providerConfig);
+      const headers: Record<string, string> = {};
+      const apiKey = getApiKey(aiConfig.requestedProvider ?? aiConfig.provider, providerConfig);
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
+      try {
         const start = Date.now();
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
@@ -144,8 +105,14 @@ export class DoctorCommand extends Command {
         clearTimeout(timer);
         const ms = Date.now() - start;
         check('Connectivity', resp.ok, `${baseUrl} (${ms}ms)`, resp.ok ? undefined : `Server returned ${resp.status}`, false);
+        if (resp.ok && aiConfig.provider === 'local') {
+          const modelIds = extractModelIds(await resp.json());
+          if (modelIds.length > 0) {
+            this.context.stdout.write(`  Available local models: ${modelIds.slice(0, 5).join(', ')}\n`);
+          }
+        }
       } catch {
-        check('Connectivity', false, 'Unreachable', 'Check that the server is running and the base URL is correct', false);
+        check('Connectivity', false, 'Unreachable', 'Check that the server is running and AI_BASE_URL is correct.', false);
       }
     }
 

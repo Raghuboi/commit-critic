@@ -68,12 +68,13 @@ export async function analyzeCommit(
       suggestions = llmResult.suggestions;
       suggestion = llmResult.suggestion;
       whyGood = llmResult.whyGood;
-    } catch {
+    } catch (err) {
       // Fallback to deterministic score on LLM failure
       usedFallback = true;
       warn('LLM unavailable — using deterministic scoring. Check your API key and network connection.');
       if (options.strict) {
-        throw new Error('LLM analysis failed and strict mode is enabled');
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(`LLM analysis failed and strict mode is enabled: ${message}`);
       }
     }
   }

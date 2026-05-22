@@ -196,5 +196,6 @@ export async function commitStagedChanges(
   if (exitCode === 0) {
     return { success: true, output: output.trim() };
   }
-  return { success: false, error: err.trim() || `git commit failed with exit code ${exitCode}` };
+  const failure = [err.trim(), output.trim()].filter(Boolean).join('\n');
+  return { success: false, error: failure || `git commit failed with exit code ${exitCode}` };
 }

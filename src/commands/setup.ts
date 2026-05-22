@@ -1,65 +1,32 @@
 /**
- * SetupCommand — interactive provider configuration wizard
+ * SetupCommand — interactive provider configuration wizard.
  *
- * Guides users through provider selection and configuration,
- * then prints export commands for their shell config.
- *
- * Does NOT save to .env directly — only prints the commands.
+ * Prints an environment snippet and can update .env after explicit confirmation.
  */
 
 import { Command, Option } from 'clipanion';
-import { select, input } from '@inquirer/prompts';
+import { select, input, confirm } from '@inquirer/prompts';
+import { readFile, writeFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { resolveAIConfig, resolveProviderConfig, maskKey, validateAIConfig } from '../config/ai-config';
+import { getProviderApiKey, getProviderDefinition, SETUP_PROVIDERS } from '../config/providers';
 import { noColor } from '../utils/env';
-import type { AIProvider } from '../types/config';
-
-const PROVIDERS: { name: string; value: AIProvider; description: string }[] = [
-  { name: 'OpenAI', value: 'openai', description: 'OpenAI API (requires API key)' },
-  { name: 'OpenRouter', value: 'openrouter', description: 'OpenRouter (requires API key)' },
-  { name: 'LM Studio', value: 'lmstudio', description: 'Local LM Studio server' },
-  { name: 'vLLM', value: 'vllm', description: 'Local vLLM server' },
-  { name: 'Ollama', value: 'ollama', description: 'Local Ollama server' },
-  { name: 'llama.cpp', value: 'llamacpp', description: 'Local llama.cpp server' },
-];
-
-const DEFAULT_BASE_URLS: Record<string, string> = {
-  lmstudio: 'http://localhost:1234/v1',
-  vllm: 'http://localhost:8000/v1',
-  ollama: 'http://localhost:11434/v1',
-  llamacpp: 'http://localhost:8081/v1',
-};
-
-const DEFAULT_MODELS: Record<string, string> = {
-  openai: 'gpt-4.1',
-  openrouter: 'anthropic/claude-sonnet-4',
-  lmstudio: 'local-model',
-  vllm: 'local-model',
-  ollama: 'local-model',
-  llamacpp: 'local-model',
-};
-
-const PROVIDER_KEYS: Record<string, { urlKey?: string; keyEnv?: string }> = {
-  openai: { keyEnv: 'OPENAI_API_KEY' },
-  openrouter: { keyEnv: 'OPENROUTER_API_KEY' },
-  lmstudio: { urlKey: 'LM_STUDIO_BASE_URL' },
-  vllm: { urlKey: 'VLLM_BASE_URL' },
-  ollama: { urlKey: 'OLLAMA_BASE_URL' },
-  llamacpp: { urlKey: 'LLAMACPP_BASE_URL' },
-};
+import { EXIT_AUTH_ERROR } from '../utils/exit-codes';
+import type { AIProviderInput } from '../types/config';
 
 export class SetupCommand extends Command {
   static paths = [['setup']];
   static usage = Command.Usage({
     category: 'Configuration',
-    description: 'Interactive provider configuration wizard',
+    description: 'Configure an LLM provider',
     details: `
-      Guides you through selecting and configuring an AI provider.
-      Prints export commands to add to your shell config (~/.bashrc, ~/.zshrc, etc.).
-      Does NOT modify any files directly.
+      Guides you through selecting an LLM provider and prints the environment
+      variables commit-critic needs. It only writes .env after confirmation.
     `,
     examples: [
       ['Run setup wizard', 'commit-critic setup'],
+      ['Print current config only', 'commit-critic setup --non-interactive'],
+      ['Fast validation for scripts', 'commit-critic setup --quick'],
     ],
   });
 
@@ -75,143 +42,131 @@ export class SetupCommand extends Command {
     const useColor = !noColor();
     const stdout = this.context.stdout;
 
-    // Show current config
     stdout.write('\n');
-    if (useColor) {
-      stdout.write(pc.bold('Current Configuration\n'));
-    } else {
-      stdout.write('Current Configuration\n');
-    }
+    stdout.write(useColor ? pc.bold('Current Configuration\n') : 'Current Configuration\n');
     stdout.write('─'.repeat(40) + '\n');
 
     const aiConfig = resolveAIConfig();
-    const providerConfig = resolveProviderConfig();
+    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
+    const currentBaseUrl = providerConfig.localBaseUrl && aiConfig.provider === 'local' ? providerConfig.localBaseUrl : undefined;
+    const currentKey = getCurrentApiKey(aiConfig.provider, providerConfig);
 
-    stdout.write(`Provider:  ${aiConfig.provider}\n`);
+    stdout.write(`Provider:  ${aiConfig.provider}${aiConfig.requestedProvider && aiConfig.requestedProvider !== aiConfig.provider ? ` (${aiConfig.requestedProvider} alias)` : ''}\n`);
     stdout.write(`Model:     ${aiConfig.model}\n`);
-
-    // Show current base URLs if set
-    const currentUrl = this.getCurrentBaseUrl(aiConfig.provider, providerConfig);
-    if (currentUrl) {
-      stdout.write(`Base URL:  ${currentUrl}\n`);
-    }
-
-    // Show current API key if set (masked)
-    const currentKey = this.getCurrentApiKey(aiConfig.provider, providerConfig);
-    if (currentKey) {
-      stdout.write(`API Key:   ${maskKey(currentKey)}\n`);
-    }
+    if (currentBaseUrl) stdout.write(`Base URL:  ${currentBaseUrl}\n`);
+    if (currentKey) stdout.write(`API Key:   ${maskKey(currentKey)}\n`);
 
     const validationError = validateAIConfig(aiConfig);
-    if (this.quick && !validationError) {
-      stdout.write('\nProvider config is already valid.\n');
+    if (this.quick) {
+      if (validationError) {
+        stdout.write(`\nProvider config is invalid: ${validationError}\n`);
+        stdout.write('Run `commit-critic setup` interactively or export the required environment variables.\n');
+        process.exit(EXIT_AUTH_ERROR);
+      }
+      stdout.write('\nProvider config is valid.\n');
       return;
     }
 
     if (this.nonInteractive) {
       if (validationError) {
-        stdout.write(`\nMissing configuration: ${validationError}\n`);
+        stdout.write(`\nProvider config is invalid: ${validationError}\n`);
         stdout.write('Run `commit-critic setup` interactively or export the required environment variables.\n');
-      } else {
-        stdout.write('\nProvider config is valid.\n');
+        process.exit(EXIT_AUTH_ERROR);
       }
+      stdout.write('\nProvider config is valid.\n');
       return;
     }
 
     stdout.write('\n');
-
-    // Provider selection
-    const provider = await select({
+    const provider = await select<AIProviderInput>({
       message: 'Select AI provider:',
-      choices: PROVIDERS.map((p) => ({
-        name: p.name,
-        value: p.value,
-        description: p.description,
-      })),
+      choices: SETUP_PROVIDERS.map((providerName) => {
+        const definition = getProviderDefinition(providerName);
+        return {
+          name: definition.label,
+          value: definition.name,
+          description: definition.description,
+        };
+      }),
     });
 
-    // Provider-specific prompts
-    let baseUrl: string | undefined;
-    let apiKey: string | undefined;
+    const envValues: Record<string, string> = { AI_PROVIDER: provider };
 
-    const providerInfo = PROVIDER_KEYS[provider];
-
-    if (providerInfo.urlKey) {
-      const defaultUrl = DEFAULT_BASE_URLS[provider];
-      baseUrl = await input({
-        message: `Base URL (${provider} server):`,
-        default: defaultUrl,
+    if (provider === 'local') {
+      const baseUrl = await input({
+        message: 'OpenAI-compatible base URL:',
+        default: currentBaseUrl ?? getProviderDefinition(provider).defaultBaseUrl,
         required: true,
       });
-    } else if (providerInfo.keyEnv) {
-      apiKey = await input({
-        message: `API Key (${providerInfo.keyEnv}):`,
+      envValues.AI_BASE_URL = baseUrl;
+
+      const apiKey = await input({
+        message: 'Local API key (leave blank if not required):',
+        default: '',
+      });
+      if (apiKey.trim()) envValues.LOCAL_API_KEY = apiKey.trim();
+    } else {
+      const keyName = provider === 'openai' ? 'OPENAI_API_KEY' : 'OPENROUTER_API_KEY';
+      const apiKey = await input({
+        message: `API key (${keyName}):`,
         required: true,
       });
+      envValues[keyName] = apiKey;
     }
 
-    // Model name
-    const defaultModel = DEFAULT_MODELS[provider];
     const model = await input({
       message: 'Model name:',
-      default: defaultModel,
+      default: getProviderDefinition(provider).defaultModel,
       required: true,
     });
+    envValues.AI_MODEL = model;
 
-    // Print export commands
     stdout.write('\n');
-    if (useColor) {
-      stdout.write(pc.bold('Add these to your shell config (~/.bashrc, ~/.zshrc, etc.):\n'));
-    } else {
-      stdout.write('Add these to your shell config (~/.bashrc, ~/.zshrc, etc.):\n');
+    stdout.write(useColor ? pc.bold('Environment values\n') : 'Environment values\n');
+    stdout.write('─'.repeat(40) + '\n');
+    for (const [key, value] of Object.entries(envValues)) {
+      stdout.write(`${key}=${JSON.stringify(value)}\n`);
     }
     stdout.write('─'.repeat(40) + '\n');
-    stdout.write('\n');
 
-    stdout.write('# Provider\n');
-    stdout.write(`export AI_PROVIDER="${provider}"\n`);
-    stdout.write('\n');
+    const shouldWriteEnv = await confirm({
+      message: 'Write these values to .env?',
+      default: false,
+    });
 
-    stdout.write('# Model\n');
-    stdout.write(`export AI_MODEL="${model}"\n`);
-    stdout.write('\n');
-
-    if (baseUrl) {
-      stdout.write('# Base URL\n');
-      stdout.write(`export ${providerInfo.urlKey}="${baseUrl}"\n`);
-      stdout.write('\n');
-    }
-
-    if (apiKey) {
-      stdout.write('# API Key\n');
-      stdout.write(`export ${providerInfo.keyEnv}="${apiKey}"\n`);
-      stdout.write('\n');
-    }
-
-    stdout.write('─'.repeat(40) + '\n');
-    stdout.write('\n');
-    if (useColor) {
-      stdout.write(pc.green('Setup complete! Restart your shell or source your config file.\n'));
+    if (shouldWriteEnv) {
+      await updateEnvFile('.env', envValues);
+      stdout.write(useColor ? pc.green('\nUpdated .env.\n') : '\nUpdated .env.\n');
     } else {
-      stdout.write('Setup complete! Restart your shell or source your config file.\n');
+      stdout.write('\nNo files changed. Copy the values above into your shell or .env file.\n');
     }
+  }
+}
+
+function getCurrentApiKey(provider: AIProviderInput, config: ReturnType<typeof resolveProviderConfig>): string | undefined {
+  return getProviderApiKey(provider, config);
+}
+
+async function updateEnvFile(path: string, values: Record<string, string>): Promise<void> {
+  let existing = '';
+  try {
+    existing = await readFile(path, 'utf8');
+  } catch {
+    existing = '';
   }
 
-  private getCurrentBaseUrl(provider: string, config: ReturnType<typeof resolveProviderConfig>): string | undefined {
-    switch (provider) {
-      case 'lmstudio': return config.lmstudioBaseUrl;
-      case 'vllm': return config.vllmBaseUrl;
-      case 'ollama': return config.ollamaBaseUrl;
-      case 'llamacpp': return config.llamacppBaseUrl;
-      default: return undefined;
-    }
-  }
+  const pending = new Map(Object.entries(values));
+  const lines = existing.split('\n').map((line) => {
+    const match = line.match(/^([A-Z0-9_]+)=/);
+    if (!match) return line;
+    const key = match[1];
+    const value = pending.get(key);
+    if (value === undefined) return line;
+    pending.delete(key);
+    return `${key}=${value}`;
+  });
 
-  private getCurrentApiKey(provider: string, config: ReturnType<typeof resolveProviderConfig>): string | undefined {
-    switch (provider) {
-      case 'openai': return config.openaiApiKey;
-      case 'openrouter': return config.openrouterApiKey;
-      default: return undefined;
-    }
-  }
+  const additions = Array.from(pending.entries()).map(([key, value]) => `${key}=${value}`);
+  const next = [...lines.filter((line, index) => !(index === lines.length - 1 && line === '')), ...additions].join('\n') + '\n';
+  await writeFile(path, next);
 }

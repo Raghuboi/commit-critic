@@ -69,12 +69,30 @@ export async function analyzeRemoteRepo<T>(
  * Validate a repository URL.
  */
 export function isValidRepoUrl(url: string): boolean {
-  if (!url || url.trim().length === 0) return false;
-  if (url.startsWith('https://') || url.startsWith('git@')) return true;
-  if (url.startsWith('file://')) return true;
-  // Reject plain text that doesn't look like a path
-  if (url.includes(' ') || url.includes('\n')) return false;
-  // Only accept absolute paths for local paths
-  if (url.startsWith('/')) return true;
-  return false;
+  const value = url.trim();
+  if (!value || /\s/.test(value)) return false;
+
+  if (value.startsWith('https://')) {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'https:' && Boolean(parsed.hostname) && parsed.pathname.split('/').filter(Boolean).length >= 2;
+    } catch {
+      return false;
+    }
+  }
+
+  if (value.startsWith('git@')) {
+    return /^git@[^:\s]+:[^\s/]+\/[^\s]+$/.test(value);
+  }
+
+  if (value.startsWith('file://')) {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'file:' && (parsed.pathname.length > 1 || Boolean(parsed.hostname));
+    } catch {
+      return false;
+    }
+  }
+
+  return value.startsWith('/');
 }

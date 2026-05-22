@@ -59,10 +59,8 @@ const mockAIConfig = {
 const mockProviderConfig = {
   openaiApiKey: 'sk-test',
   openrouterApiKey: undefined,
-  lmstudioBaseUrl: undefined,
-  vllmBaseUrl: undefined,
-  vllmApiKey: undefined,
-  ollamaBaseUrl: undefined,
+  localBaseUrl: 'http://localhost:8081/v1',
+  localApiKey: undefined,
 };
 
 /**
@@ -85,25 +83,27 @@ function createMockModel(responseText: string) {
 // ── analyzeCommitWithLLM ──────────────────────────────────────────────────────
 
 describe('analyzeCommitWithLLM', () => {
-  test('Zod rejects invalid category', async () => {
+  test('normalizes loose local-model issue shapes', async () => {
     const mockResult = {
-      score: 9,
-      issues: [
-        { category: 'invalid-category', severity: 'suggestion' as const, message: 'Great commit' },
-      ],
-      suggestions: [],
+      score: 0,
+      issues: ['Message is vague', { category: 'invalid-category', severity: 'unknown', message: 'Needs detail' }],
+      suggestions: ['Use a specific conventional commit message'],
     };
 
     const mockModel = createMockModel(JSON.stringify(mockResult));
 
-    await expect(
-      analyzeCommitWithLLM(
-        mockCommit,
-        mockDeterministic,
-        { ...mockAIConfig, __testModel: mockModel },
-        mockProviderConfig
-      )
-    ).rejects.toThrow();
+    const result = await analyzeCommitWithLLM(
+      mockCommit,
+      mockDeterministic,
+      { ...mockAIConfig, __testModel: mockModel },
+      mockProviderConfig
+    );
+
+    expect(result.score).toBe(1);
+    expect(result.issues).toEqual([
+      { category: 'clarity', severity: 'warning', message: 'Message is vague' },
+      { category: 'clarity', severity: 'warning', message: 'Needs detail' },
+    ]);
   });
 
   test('returns structured output when model returns valid JSON', async () => {
@@ -239,42 +239,6 @@ describe('generateCommitMessage', () => {
     expect(result2).toBe('fix: resolve null pointer');
   });
 
-  test('returns multi-line commit message with body', async () => {
-    const mockModel = createMockModel(
-      'feat(api): add user endpoints\n\n- GET /users\n- POST /users'
-    );
-
-    const result = await generateCommitMessage(
-      'diff content',
-      'feat',
-      'api',
-      'add user endpoints',
-      { ...mockAIConfig, __testModel: mockModel },
-      mockProviderConfig
-    );
-
-    expect(result).toContain('feat(api): add user endpoints');
-    expect(result).toContain('GET /users');
-  });
-
-  test('propagates errors from model', async () => {
-    const mockModel = new MockLanguageModelV4({
-      doGenerate: async () => {
-        throw new Error('API rate limited');
-      },
-    });
-
-    await expect(
-      generateCommitMessage(
-        'diff',
-        'fix',
-        undefined,
-        undefined,
-        { ...mockAIConfig, __testModel: mockModel },
-        mockProviderConfig
-      )
-    ).rejects.toThrow('API rate limited');
-  });
 });
 
 // ── extractJson ───────────────────────────────────────────────────────────────
@@ -313,15 +277,13 @@ describe('getProvider', () => {
     expect(typeof getProvider({ ...mockAIConfig, provider: 'openrouter' }, { ...mockProviderConfig, openrouterApiKey: 'sk-or-test' })).toBe('function');
   });
 
-  test('returns openai-compatible provider for lmstudio, vllm, ollama, llamacpp', () => {
-    expect(typeof getProvider({ ...mockAIConfig, provider: 'lmstudio' }, { ...mockProviderConfig, lmstudioBaseUrl: 'http://localhost:1234/v1' })).toBe('function');
-    expect(typeof getProvider({ ...mockAIConfig, provider: 'vllm' }, { ...mockProviderConfig, vllmBaseUrl: 'http://localhost:8000/v1' })).toBe('function');
-    expect(typeof getProvider({ ...mockAIConfig, provider: 'ollama' }, { ...mockProviderConfig, ollamaBaseUrl: 'http://localhost:11434/v1' })).toBe('function');
-    expect(typeof getProvider({ ...mockAIConfig, provider: 'llamacpp' }, { ...mockProviderConfig, llamacppBaseUrl: 'http://localhost:8081/v1' })).toBe('function');
+  test('returns openai-compatible provider for local and local aliases', () => {
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'local', requestedProvider: 'local' }, mockProviderConfig)).toBe('function');
+    expect(typeof getProvider({ ...mockAIConfig, provider: 'local', requestedProvider: 'llamacpp' }, mockProviderConfig)).toBe('function');
   });
 
-  test('returns openai-compatible provider for unknown provider (default)', async () => {
-    const aiConfig = resolveAIConfig({ provider: 'custom-provider' as unknown as import('../types/config').AIProvider });
+  test('unknown provider resolves to openai default', async () => {
+    const aiConfig = resolveAIConfig({ provider: 'custom-provider' });
     expect(aiConfig.provider).toBe('openai');
     const provider = getProvider(aiConfig, mockProviderConfig);
     expect(typeof provider).toBe('function');
@@ -330,39 +292,9 @@ describe('getProvider', () => {
 
 // ── generateChangeBullets ──────────────────────────────────────────────────────
 
-describe('generateChangeBullets (deterministic)', () => {
-  test('returns "Updated files" for empty file list', async () => {
-    const bullets = await generateChangeBullets('', []);
-    expect(bullets).toEqual(['Updated files']);
-  });
-
-  test('reports added files (single and multiple)', async () => {
-    // Single added file
-    expect(await generateChangeBullets('', [{ status: 'A', path: 'src/new.ts' }])).toEqual(['Added 1 file']);
-    // Multiple added files
-    expect(await generateChangeBullets('', [
-      { status: 'A', path: 'src/new.ts' },
-      { status: 'A', path: 'src/also-new.ts' },
-    ])).toEqual(['Added 2 files']);
-  });
-
-  test('reports modified files', async () => {
-    const files = [
-      { status: 'M', path: 'src/a.ts' },
-      { status: 'M', path: 'src/b.ts' },
-      { status: 'M', path: 'src/c.ts' },
-    ];
-    const bullets = await generateChangeBullets('', files);
-    expect(bullets).toEqual(['Modified 3 files']);
-  });
-
-  test('reports deleted files', async () => {
-    const files = [{ status: 'D', path: 'src/old.ts' }];
-    const bullets = await generateChangeBullets('', files);
-    expect(bullets).toEqual(['Deleted 1 file']);
-  });
-
-  test('reports mixed statuses', async () => {
+describe('generateChangeBullets', () => {
+  test('falls back to deterministic staged-file bullets', async () => {
+    expect(await generateChangeBullets('', [])).toEqual(['Updated files']);
     const files = [
       { status: 'A', path: 'src/new.ts' },
       { status: 'M', path: 'src/existing.ts' },

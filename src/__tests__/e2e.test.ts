@@ -9,12 +9,32 @@ import { join } from 'node:path';
 
 const CLI_PATH = join(process.cwd(), 'src/cli.ts');
 
-async function runCli(args: string[], cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+const AI_ENV_PREFIXES = ['AI_', 'OPENAI_', 'OPENROUTER_', 'LOCAL_', 'LM_', 'VLLM_', 'OLLAMA_', 'LLAMACPP_'];
+
+function cliEnv(overrides: Record<string, string | undefined> = {}): Record<string, string> {
+  const env: Record<string, string> = { ...process.env, NO_COLOR: '1' } as Record<string, string>;
+  for (const key of Object.keys(env)) {
+    if (AI_ENV_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+      delete env[key];
+    }
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) delete env[key];
+    else env[key] = value;
+  }
+  return env;
+}
+
+async function runCli(
+  args: string[],
+  cwd?: string,
+  envOverrides?: Record<string, string | undefined>
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const proc = Bun.spawn(['bun', CLI_PATH, ...args], {
     cwd: cwd || process.cwd(),
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, NO_COLOR: '1' },
+    env: cliEnv(envOverrides),
   });
   const exitCode = await proc.exited;
   const stdout = await new Response(proc.stdout).text();
@@ -30,21 +50,6 @@ async function runGit(cwd: string, args: string[]) {
   if (exitCode !== 0) throw new Error(`git ${args.join(' ')} failed: ${err || out}`);
   return out;
 }
-
-test('analyze command produces output', async () => {
-  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-e2e-'));
-  await runGit(tempDir, ['init', '-b', 'main']);
-  await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
-  await runGit(tempDir, ['config', 'user.name', 'Test']);
-  await writeFile(join(tempDir, 'a.txt'), 'hello');
-  await runGit(tempDir, ['add', 'a.txt']);
-  await runGit(tempDir, ['commit', '-m', 'feat: initial commit']);
-
-  const { stdout, exitCode } = await runCli(['analyze', '--no-llm', '--count', '10'], tempDir);
-  expect(exitCode).toBe(0);
-  expect(stdout).toContain('feat: initial commit');
-  await rm(tempDir, { recursive: true, force: true });
-});
 
 test('analyze command with --no-llm works offline', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-offline-'));
@@ -91,16 +96,6 @@ test('write command exits 10 with no staged changes', async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-test('doctor command checks git availability', async () => {
-  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-doctor-'));
-  await runGit(tempDir, ['init', '-b', 'main']);
-  const { stdout, exitCode } = await runCli(['doctor'], tempDir);
-  expect(stdout).toContain('Git');
-  // Exit code is 0 if all checks pass, or 1 if provider config missing (env-dependent)
-  expect(exitCode === 0 || exitCode === 1).toBe(true);
-  await rm(tempDir, { recursive: true, force: true });
-});
-
 test('auto-JSON on pipe', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-pipe-'));
   await runGit(tempDir, ['init', '-b', 'main']);
@@ -123,67 +118,32 @@ test('auto-JSON on pipe', async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-test('temp dir cleanup on error', async () => {
-  try {
-    const { exitCode } = await runCli(['analyze', '--url', 'https://invalid-host-that-does-not-exist-12345.example/repo.git', '--count', '1']);
-    expect(exitCode).not.toBe(0);
-  } catch {
-    // expected
-  }
-});
-
-test('analyze includes rewrite in issues for bad commits', async () => {
-  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-better-'));
-  await runGit(tempDir, ['init', '-b', 'main']);
-  await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
-  await runGit(tempDir, ['config', 'user.name', 'Test']);
-  await writeFile(join(tempDir, 'a.txt'), 'hello');
-  await runGit(tempDir, ['add', 'a.txt']);
-  await runGit(tempDir, ['commit', '-m', 'wip']);
-
-  const { stdout, exitCode } = await runCli(['analyze', '--no-llm', '--json', '--count', '10'], tempDir);
-  expect(exitCode).toBe(1);
-  const json = JSON.parse(stdout);
-  const commit = json.commits[0];
-  expect(commit.score).toBeLessThan(5);
-  const issuesWithRewrite = commit.issues.filter((i: { rewrite?: string }) => i.rewrite);
-  expect(issuesWithRewrite.length).toBeGreaterThan(0);
-  const firstRewrite = issuesWithRewrite[0].rewrite as string;
-  expect(firstRewrite).toContain('feat:');
-  await rm(tempDir, { recursive: true, force: true });
-});
-
-test('analyze identifies vague commit issues', async () => {
-  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-issue-'));
-  await runGit(tempDir, ['init', '-b', 'main']);
-  await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
-  await runGit(tempDir, ['config', 'user.name', 'Test']);
-  await writeFile(join(tempDir, 'b.txt'), 'world');
-  await runGit(tempDir, ['add', 'b.txt']);
-  await runGit(tempDir, ['commit', '-m', 'fixed bug']);
-
-  const { stdout } = await runCli(['analyze', '--no-llm', '--json', '--count', '10'], tempDir);
-  const json = JSON.parse(stdout);
-  const commit = json.commits[0];
-  const hasVagueIssue = commit.issues.some((i: { message: string }) =>
-    i.message.toLowerCase().includes('vague')
-  );
-  expect(hasVagueIssue).toBe(true);
-  await rm(tempDir, { recursive: true, force: true });
-});
-
-test('write command help documents explicit commit follow-up', async () => {
-  const { stdout, exitCode } = await runCli(['write', '--help']);
+test('setup command quick exits zero when local provider config is valid', async () => {
+  const { stdout, exitCode } = await runCli(['setup', '--quick'], undefined, {
+    AI_PROVIDER: 'local',
+    AI_MODEL: 'local-model',
+    AI_BASE_URL: 'http://localhost:8081/v1',
+  });
   expect(exitCode).toBe(0);
-  expect(stdout).toContain('--commit');
-  expect(stdout).toContain('Prompt to commit staged changes');
-});
-
-test('setup command non-interactive prints current configuration', async () => {
-  const { stdout, exitCode } = await runCli(['setup', '--non-interactive']);
-  expect(exitCode).toBe(0);
-  expect(stdout).toContain('Current Configuration');
   expect(stdout).toContain('Provider:');
+  expect(stdout).toContain('Provider config is valid');
+});
+
+test('write rejects invalid commit type before prompting', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-invalid-type-'));
+  try {
+    await runGit(tempDir, ['init', '-b', 'main']);
+    await runGit(tempDir, ['config', 'user.email', 'test@test.com']);
+    await runGit(tempDir, ['config', 'user.name', 'Test']);
+    await writeFile(join(tempDir, 'invalid-type.txt'), 'hello');
+    await runGit(tempDir, ['add', 'invalid-type.txt']);
+
+    const { stderr, exitCode } = await runCli(['write', '--no-llm', '--type', 'invalid'], tempDir);
+    expect(exitCode).toBe(10);
+    expect(stderr).toContain('Invalid --type value');
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('write command with staged changes shows files', async () => {

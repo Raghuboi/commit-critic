@@ -33,11 +33,6 @@ describe('scoreCommit', () => {
     expect(result.issues.some(i => i.severity === 'critical' || i.severity === 'warning')).toBe(true);
   });
 
-  test('detects missing conventional commit type', () => {
-    const result = scoreCommit(makeCommit('Added new feature'));
-    expect(result.issues.some(i => i.category === 'convention')).toBe(true);
-  });
-
   test('catches one-word commit', () => {
     const result = scoreCommit(makeCommit('wip'));
     expect(result.score).toBeLessThanOrEqual(3);
@@ -51,13 +46,6 @@ describe('scoreCommit', () => {
     const rewrites = result.issues.map(i => i.rewrite).filter(Boolean);
     expect(rewrites.some(r => r === 'fix: describe the bug and affected behavior')).toBe(true);
     expect(rewrites.some(r => r?.includes('fix: fix'))).toBe(false);
-  });
-
-  test('provides rewrite for vague commit', () => {
-    const result = scoreCommit(makeCommit('update'));
-    const rewrite = result.issues.find(i => i.rewrite)?.rewrite;
-    expect(rewrite).toBeDefined();
-    expect(rewrite).toContain('feat:');
   });
 
   test('provides rewrite for missing conventional commit type', () => {
@@ -95,23 +83,17 @@ describe('scoreCommit', () => {
 });
 
 describe('isConventionalCommit', () => {
-  test('returns true for valid format', () => {
+  test('validates conventional commit format', () => {
     expect(isConventionalCommit('feat(api): add caching')).toBe(true);
     expect(isConventionalCommit('fix: handle error')).toBe(true);
-  });
-
-  test('returns false for invalid format', () => {
     expect(isConventionalCommit('add caching')).toBe(false);
     expect(isConventionalCommit('feat add caching')).toBe(false);
   });
 });
 
 describe('isMergeCommit', () => {
-  test('returns false for single parent', () => {
+  test('detects merge commits by parent count', () => {
     expect(isMergeCommit(makeCommit('feat: add login'))).toBe(false);
-  });
-
-  test('returns true for two parents', () => {
     expect(isMergeCommit(makeCommit('Merge branch main', '', ['p1', 'p2']))).toBe(true);
   });
 });

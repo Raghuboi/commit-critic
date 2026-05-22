@@ -1,29 +1,30 @@
 /**
- * Config types
+ * AI provider configuration contracts.
  */
 
-/**
- * Supported AI providers.
- */
-export type AIProvider = 'openai' | 'openrouter' | 'lmstudio' | 'vllm' | 'ollama' | 'llamacpp';
+/** Public provider surface. */
+export type AIProvider = 'openai' | 'openrouter' | 'local';
 
-/**
- * AI provider configuration.
- */
+/** Backward-compatible aliases accepted from flags and env vars. */
+export type AIProviderInput = AIProvider | 'lmstudio' | 'vllm' | 'ollama' | 'llamacpp';
+
+/** AI provider configuration. */
 export interface AIConfig {
-  /** Provider name */
+  /** Canonical provider name used by the runtime. */
   provider: AIProvider;
-  /** Model ID within the provider */
+  /** Original provider input after validation; aliases map to provider: "local". */
+  requestedProvider?: AIProviderInput;
+  /** Model ID within the provider. */
   model: string;
-  /** Fail fast on LLM errors */
+  /** Fail fast on LLM errors. */
   strictMode: boolean;
-  /** Generation temperature (0-1) */
+  /** Generation temperature (0-1). */
   temperature: number;
-  /** Max output tokens */
+  /** Max output tokens. */
   maxTokens: number;
-  /** Max retry count */
+  /** Max retry count. */
   maxRetries: number;
-  /** Abort slow LLM calls after this many milliseconds */
+  /** Abort slow LLM calls after this many milliseconds. */
   timeoutMs: number;
   /**
    * Internal: inject a mock model for testing.
@@ -33,15 +34,10 @@ export interface AIConfig {
   __testModel?: import('@ai-sdk/provider').LanguageModelV4;
 }
 
-/**
- * Provider-specific config.
- */
+/** Provider-specific config. */
 export interface ProviderSpecificConfig {
   openaiApiKey?: string;
   openrouterApiKey?: string;
-  lmstudioBaseUrl?: string;
-  vllmBaseUrl?: string;
-  vllmApiKey?: string;
-  ollamaBaseUrl?: string;
-  llamacppBaseUrl?: string;
+  localBaseUrl?: string;
+  localApiKey?: string;
 }

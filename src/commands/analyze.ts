@@ -83,10 +83,10 @@ export class AnalyzeCommand extends Command {
   async execute() {
     const startMs = Date.now();
     const repoPath = process.cwd();
-    const count = parseInt(this.count, 10);
-    if (Number.isNaN(count) || count <= 0) {
-      error('Invalid --count value', 'Use a positive integer like --count 50');
-      return this.cli.run(['--help']);
+    const count = parseCommitCount(this.count);
+    if (count === null) {
+      error('Invalid --count value', 'Use a positive whole number like --count 50');
+      process.exit(EXIT_BAD_INPUT);
     }
 
     // Resolve AI config
@@ -94,7 +94,7 @@ export class AnalyzeCommand extends Command {
       provider: this.provider,
       model: this.model,
     } as Partial<AIConfig> & { provider?: string });
-    const providerConfig = resolveProviderConfig();
+    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
 
     if (!this.noLlm) {
       const validationError = validateAIConfig(aiConfig);
@@ -144,6 +144,7 @@ export class AnalyzeCommand extends Command {
 
     const { results, fallbackCount } = await analyzeCommits(commits, {
       noLlm: this.noLlm,
+      strict: aiConfig.strictMode,
       aiConfig: this.noLlm ? undefined : aiConfig,
       providerConfig: this.noLlm ? undefined : providerConfig,
       showProgress: !this.json && !isPiped(),
@@ -163,6 +164,13 @@ export class AnalyzeCommand extends Command {
       process.exit(EXIT_GENERAL_ERROR);
     }
   }
+}
+
+function parseCommitCount(raw: string): number | null {
+  if (!/^\d+$/.test(raw.trim())) return null;
+  const count = Number(raw);
+  if (!Number.isSafeInteger(count) || count <= 0) return null;
+  return count;
 }
 
 function buildSummary(results: AnalysisResult[], fallbackCount: number, startMs: number): AnalysisSummary {

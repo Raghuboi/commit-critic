@@ -13,10 +13,15 @@ describe('isValidRepoUrl', () => {
     expect(isValidRepoUrl('/home/user/repo')).toBe(true);
   });
 
-  test('rejects invalid URLs (empty, random text, http)', () => {
+  test('rejects invalid URLs (empty, malformed, incomplete, http)', () => {
     expect(isValidRepoUrl('')).toBe(false);
     expect(isValidRepoUrl('not-a-url')).toBe(false);
     expect(isValidRepoUrl('http://example.com/repo.git')).toBe(false);
+    expect(isValidRepoUrl('https://')).toBe(false);
+    expect(isValidRepoUrl('https://github.com')).toBe(false);
+    expect(isValidRepoUrl('git@github.com')).toBe(false);
+    expect(isValidRepoUrl('file://')).toBe(false);
+    expect(isValidRepoUrl('https://github.com/user/repo with-space')).toBe(false);
   });
 });
 

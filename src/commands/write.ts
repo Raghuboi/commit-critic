@@ -21,13 +21,13 @@
  */
 
 import { Command, Option } from 'clipanion';
-import { getStagedDiff, hasStagedChanges, getStagedStats, getStagedFiles, commitStagedChanges } from '../core/git';
+import { getStagedDiff, hasStagedChanges, getStagedStats, getStagedFiles, commitStagedChanges, isGitRepo } from '../core/git';
 import { runWriter } from '../core/writer';
 import { generateChangeBullets } from '../core/llm';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig } from '../config/ai-config';
-import type { AIConfig, AIProvider } from '../types/config';
+import type { AIConfig } from '../types/config';
 import { error, renderChangeSummary } from '../ui/output';
-import { promptConfirm } from '../ui/prompts';
+import { promptConfirm, isCommitType } from '../ui/prompts';
 import { EXIT_SUCCESS, EXIT_GENERAL_ERROR, EXIT_AUTH_ERROR, EXIT_BAD_INPUT } from '../utils/exit-codes';
 
 export class WriteCommand extends Command {
@@ -68,6 +68,16 @@ export class WriteCommand extends Command {
   async execute() {
     const repoPath = process.cwd();
 
+    if (!(await isGitRepo(repoPath))) {
+      error('Not a git repository', 'Run this command inside a git repo before using write');
+      process.exit(EXIT_GENERAL_ERROR);
+    }
+
+    if (this.type && !isCommitType(this.type)) {
+      error('Invalid --type value', 'Use one of: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert');
+      process.exit(EXIT_BAD_INPUT);
+    }
+
     if (!(await hasStagedChanges(repoPath))) {
       error('No staged changes', 'Stage changes with git add before running write');
       process.exit(EXIT_BAD_INPUT);
@@ -77,7 +87,7 @@ export class WriteCommand extends Command {
       provider: this.provider,
       model: this.model,
     } as Partial<AIConfig> & { provider?: string });
-    const providerConfig = resolveProviderConfig();
+    const providerConfig = resolveProviderConfig(aiConfig.requestedProvider);
 
     if (!this.noLlm) {
       const validationError = validateAIConfig(aiConfig);
@@ -93,6 +103,10 @@ export class WriteCommand extends Command {
     } catch (err: unknown) {
       error(err instanceof Error ? err.message : 'Failed to read staged diff', 'Ensure you are in a git repository with staged changes (git add)');
       process.exit(EXIT_GENERAL_ERROR);
+    }
+
+    if (this.noLlm) {
+      this.context.stdout.write('LLM disabled; using template fallback.\n');
     }
 
     // Show staged change summary before prompts

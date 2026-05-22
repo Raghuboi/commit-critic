@@ -7,7 +7,7 @@
 
 import { select, input, confirm } from '@inquirer/prompts';
 
-const COMMIT_TYPES = [
+export const COMMIT_TYPES = [
   { name: 'feat', value: 'feat', description: 'A new feature' },
   { name: 'fix', value: 'fix', description: 'A bug fix' },
   { name: 'docs', value: 'docs', description: 'Documentation only changes' },
@@ -19,7 +19,13 @@ const COMMIT_TYPES = [
   { name: 'ci', value: 'ci', description: 'CI/CD changes' },
   { name: 'chore', value: 'chore', description: 'Other changes' },
   { name: 'revert', value: 'revert', description: 'Revert a commit' },
-];
+] as const;
+
+const COMMIT_TYPE_VALUES = new Set<string>(COMMIT_TYPES.map((type) => type.value));
+
+export function isCommitType(value: string | undefined): boolean {
+  return Boolean(value && COMMIT_TYPE_VALUES.has(value));
+}
 
 /**
  * Prompt for commit type.
