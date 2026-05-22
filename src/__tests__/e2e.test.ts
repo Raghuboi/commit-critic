@@ -63,13 +63,14 @@ async function commitFile(repo: string, fileName: string, content: string, messa
   await runGit(repo, ['commit', '-m', message]);
 }
 
-test('analyze command with --no-llm works offline', async () => {
+test('--analyze flag path works offline in the current repo', async () => {
   const repo = await createRepo('commit-critic-offline-');
   try {
     await commitFile(repo, 'x.txt', 'x', 'wip');
-    const { stdout, exitCode } = await runCli(['analyze', '--no-llm', '--json'], repo);
+    const { stdout, exitCode } = await runCli(['--analyze', '--no-llm', '--json'], repo);
     expect(exitCode).toBe(0);
     const json = JSON.parse(stdout);
+    expect(json.command).toBe('analyze');
     expect(json.commits.length).toBe(1);
     expect(json.commits[0].score).toBeLessThan(5);
   } finally {
@@ -77,7 +78,7 @@ test('analyze command with --no-llm works offline', async () => {
   }
 });
 
-test('analyze command handles remote repo via file://', async () => {
+test('--analyze supports equals-style --url for remote repos', async () => {
   const remoteDir = await mkdtemp(join(tmpdir(), 'commit-critic-remote-'));
   const pushDir = await createRepo('commit-critic-push-');
   try {
@@ -85,7 +86,7 @@ test('analyze command handles remote repo via file://', async () => {
     await commitFile(pushDir, 'r.txt', 'r', 'feat: remote commit');
     await runGit(pushDir, ['push', remoteDir, 'main']);
 
-    const { stdout, exitCode } = await runCli(['analyze', '--no-llm', '--url', 'file://' + remoteDir, '--count', '10']);
+    const { stdout, exitCode } = await runCli(['--analyze', '--no-llm', `--url=file://${remoteDir}`, '--count=10']);
     expect(exitCode).toBe(0);
     expect(stdout).toContain('feat: remote commit');
   } finally {
@@ -196,7 +197,7 @@ test('write accepts prefilled prompt values and prints a commit message', async 
     await runGit(repo, ['add', 'docs.md']);
 
     const { stdout, exitCode } = await runCli(
-      ['write', '--no-llm', '--type', 'docs', '--scope', 'readme', '--description', 'add usage notes'],
+      ['--write', '--no-llm', '--type', 'docs', '--scope', 'readme', '--description', 'add usage notes'],
       repo,
       { stdin: '\n' }
     );

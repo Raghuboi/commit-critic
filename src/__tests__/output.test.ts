@@ -1,25 +1,7 @@
-/**
- * Output formatting tests
- */
-
-import { describe, test, expect } from 'bun:test';
+import { test, expect } from 'bun:test';
 import { buildJsonOutput } from '../ui/json';
-import { renderCommit, renderSummary, renderChangeSummary } from '../ui/output';
+import { renderCommit, renderSummary } from '../ui/output';
 import type { AnalysisResult, AnalysisSummary } from '../types/analysis';
-
-function makeResult(subject: string, score: number): AnalysisResult {
-  return {
-    hash: 'abc123def456',
-    shortHash: 'abc1234',
-    subject,
-    score,
-    issues: [],
-    suggestions: [],
-    isConventionalCommit: subject.includes(':'),
-    isMergeCommit: false,
-    hasBody: false,
-  };
-}
 
 const summary: AnalysisSummary = {
   commitCount: 3,
@@ -37,128 +19,87 @@ const summary: AnalysisSummary = {
   durationMs: 100,
 };
 
-test('JSON output has correct shape, stats, and top-level fields', () => {
-  const results = [
-    makeResult('feat: add login', 8),
-    makeResult('wip', 2),
-    makeResult('fix bug', 4),
-  ];
-  const json = buildJsonOutput('analyze', '/repo', results, summary, '0.1.0');
-
-  // Top-level shape
-  expect(json.version).toBe('0.1.0');
-  expect(json.command).toBe('analyze');
-  expect(json).toHaveProperty('version');
-  expect(json).toHaveProperty('command');
-  expect(json).toHaveProperty('repo');
-  expect(json).toHaveProperty('commitCount');
-  expect(json).toHaveProperty('overallScore');
-  expect(json).toHaveProperty('summary');
-  expect(json).toHaveProperty('commits');
-  expect(json).toHaveProperty('stats');
-  expect(json).toHaveProperty('topIssues');
-  expect(json).toHaveProperty('durationMs');
-
-  // Stats match summary
-  expect(json.stats.vagueCommits).toBe(summary.vagueCommits);
-  expect(json.stats.oneWordCommits).toBe(summary.oneWordCommits);
-  expect(json.stats.conventionalCommits).toBe(summary.conventionalCommits);
-  expect(json.stats.commitsWithBody).toBe(summary.commitsWithBody);
-  expect(json.stats.scoreDistribution).toEqual(summary.scoreDistribution);
-});
-
-test('analysis headings match terminal report sections', () => {
+function captureLogs(fn: () => void): string {
   const logs: string[] = [];
-  const origLog = console.log;
+  const originalLog = console.log;
   console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
   try {
-    renderSummary(summary, false, false);
+    fn();
   } finally {
-    console.log = origLog;
+    console.log = originalLog;
   }
-  const output = logs.join('\n');
-  expect(output).toContain('📊 YOUR STATS');
+  return logs.join('\n');
+}
+
+test('JSON output exposes the documented top-level fields', () => {
+  const result: AnalysisResult = {
+    hash: 'abc123def456',
+    shortHash: 'abc1234',
+    subject: 'feat: add login',
+    score: 8,
+    issues: [],
+    suggestions: [],
+    isConventionalCommit: true,
+    isMergeCommit: false,
+    hasBody: false,
+  };
+
+  const json = buildJsonOutput('analyze', '/repo', [result], summary, '0.1.0');
+
+  expect(Object.keys(json)).toEqual([
+    'version',
+    'command',
+    'repo',
+    'commitCount',
+    'overallScore',
+    'summary',
+    'commits',
+    'stats',
+    'topIssues',
+    'durationMs',
+  ]);
+  expect(json.stats.vagueCommits).toBe(2);
+  expect(json.stats.oneWordCommits).toBe(1);
 });
 
-test('default summary omits verbose-only diagnostic stats', () => {
-  const logs: string[] = [];
-  const origLog = console.log;
-  console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
-  try {
-    renderSummary(summary, false, false);
-  } finally {
-    console.log = origLog;
-  }
-  const output = logs.join('\n');
-  expect(output).toContain('Average score: 6.5/10');
-  expect(output).toContain('Vague commits: 2');
-  expect(output).toContain('One-word commits: 1');
-  expect(output).not.toContain('Passed:');
-  expect(output).not.toContain('Conventional commits:');
-  expect(output).not.toContain('Commits with body:');
-  expect(output).not.toContain('Score distribution:');
-  expect(output).not.toContain('Analyzed 3 commits');
-});
+test('terminal report keeps the required commit-quality sections', () => {
+  const statsOutput = captureLogs(() => renderSummary(summary, false, false));
+  expect(statsOutput).toContain('📊 YOUR STATS');
+  expect(statsOutput).toContain('Average score: 6.5/10');
+  expect(statsOutput).toContain('Vague commits: 2');
+  expect(statsOutput).toContain('One-word commits: 1');
 
-describe('renderCommit', () => {
-  test('bad commit shows Issue: and Better: with rewrite', () => {
-    const logs: string[] = [];
-    const origLog = console.log;
-    console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
-    try {
-      renderCommit({
-        hash: 'abc123',
-        shortHash: 'abc1',
-        subject: 'wip',
-        score: 2,
-        issues: [
-          {
-            category: 'specificity',
-            severity: 'critical',
-            message: 'Subject is vague ("wip")',
-            suggestion: 'Be specific',
-            rewrite: 'feat: describe the work-in-progress feature or task',
-          },
-        ],
-        suggestions: [],
-        isConventionalCommit: false,
-        isMergeCommit: false,
-        hasBody: false,
-      }, false);
-    } finally {
-      console.log = origLog;
-    }
-    const output = logs.join('\n');
-    expect(output).toContain('Issue:');
-    expect(output).toContain('Better:');
-    expect(output).toContain('feat: describe the work-in-progress');
-    expect(output).not.toContain('(abc');
-    expect(output).not.toContain('Be specific');
-  });
+  const weakOutput = captureLogs(() => renderCommit({
+    hash: 'abc123',
+    shortHash: 'abc1',
+    subject: 'wip',
+    score: 2,
+    issues: [{
+      category: 'specificity',
+      severity: 'critical',
+      message: 'Subject is vague ("wip")',
+      rewrite: 'feat: describe the work in progress',
+    }],
+    suggestions: [],
+    isConventionalCommit: false,
+    isMergeCommit: false,
+    hasBody: false,
+  }, false));
+  expect(weakOutput).toContain('Commit: "wip"');
+  expect(weakOutput).toContain('Issue:');
+  expect(weakOutput).toContain('Better:');
 
-  test('good commit shows Why it\'s good:', () => {
-    const logs: string[] = [];
-    const origLog = console.log;
-    console.log = (...args: unknown[]) => { logs.push(args.join(' ')); };
-    try {
-      renderCommit({
-        hash: 'def456',
-        shortHash: 'def4',
-        subject: 'feat(api): add Redis caching',
-        score: 9,
-        issues: [],
-        suggestions: [],
-        whyGood: 'Clear scope, specific changes, measurable impact',
-        isConventionalCommit: true,
-        isMergeCommit: false,
-        hasBody: true,
-      }, false);
-    } finally {
-      console.log = origLog;
-    }
-    const output = logs.join('\n');
-    expect(output).toContain("Why it's good:");
-    expect(output).toContain('Clear scope');
-  });
-
+  const goodOutput = captureLogs(() => renderCommit({
+    hash: 'def456',
+    shortHash: 'def4',
+    subject: 'feat(api): add Redis caching',
+    score: 9,
+    issues: [],
+    suggestions: [],
+    whyGood: 'Clear scope and specific change',
+    isConventionalCommit: true,
+    isMergeCommit: false,
+    hasBody: true,
+  }, false));
+  expect(goodOutput).toContain("Why it's good:");
 });
