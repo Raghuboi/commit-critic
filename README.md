@@ -21,7 +21,7 @@ Install Bun if needed:
 curl -fsSL https://bun.sh/install | bash
 ```
 
-## 60-second start from source
+## Quickstart
 
 ```bash
 git clone <repo-url> commit-critic
