@@ -1,12 +1,11 @@
 /**
  * Temporary directory management
  *
- * Creates secure temp directories using os.tmpdir.
+ * Creates secure temp directories under the platform temp root.
  * Ensures cleanup even on error via finally blocks.
  */
 
 import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 /**
@@ -19,7 +18,7 @@ import { join } from 'node:path';
  *   // tempDir is automatically cleaned up
  */
 export async function withTempDir<T>(fn: (tempDir: string) => Promise<T>): Promise<T> {
-  const tempDir = await mkdtemp(join(tmpdir(), 'commit-critic-'));
+  const tempDir = await mkdtemp(join(process.env.TMPDIR ?? '/tmp', 'commit-critic-'));
   try {
     return await fn(tempDir);
   } finally {
