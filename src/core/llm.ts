@@ -386,7 +386,17 @@ export function cleanCommitMessage(text: string): string {
     value = value.slice(1, -1).trim();
   }
 
-  return value;
+  return dedupeRepeatedSubject(value);
+}
+
+function dedupeRepeatedSubject(value: string): string {
+  const lines = value.replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd());
+  const firstIndex = lines.findIndex(line => line.trim().length > 0);
+  if (firstIndex === -1) return '';
+
+  const subject = normalizeCommitLine(lines[firstIndex]!);
+  const deduped = lines.filter((line, index) => index === firstIndex || normalizeCommitLine(line) !== subject);
+  return deduped.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 export function extractJson(text: string): unknown | null {

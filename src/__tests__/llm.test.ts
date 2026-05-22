@@ -17,7 +17,7 @@ import {
   generateCommitMessage,
   generateChangeBullets,
   extractJson,
-  formatStructuredCommitMessage,
+  cleanCommitMessage,
   getProvider,
 } from '../core/llm';
 import { MockLanguageModelV4 } from 'ai/test';
@@ -261,13 +261,8 @@ describe('generateCommitMessage', () => {
     expect(result).not.toContain('\\n');
   });
 
-  test('drops duplicated subject lines from structured body output', () => {
-    const result = formatStructuredCommitMessage(
-      'docs',
-      'readme',
-      'docs(readme): document local API writer smoke',
-      '\n\ndocs(readme): document local API writer smoke\n'
-    );
+  test('deduplicates repeated subjects from text-mode commit messages', () => {
+    const result = cleanCommitMessage('docs(readme): document local API writer smoke\n\n\n\ndocs(readme): document local API writer smoke');
 
     expect(result).toBe('docs(readme): document local API writer smoke');
   });
