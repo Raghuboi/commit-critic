@@ -28,11 +28,13 @@
     "compile:windows": "bun build ./src/cli.ts --compile --target=bun-windows-x64 --outfile ./dist/commit-critic-windows-x64.exe --minify"
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.5.3",
-    "ai": "7.0.0-canary.149",
     "@ai-sdk/openai": "4.0.0-canary.62",
     "@ai-sdk/openai-compatible": "3.0.0-canary.50",
+    "@ai-sdk/provider-utils": "^4.0.27",
+    "@inquirer/prompts": "^7.5.3",
+    "ai": "7.0.0-canary.149",
     "clipanion": "^3.2.1",
+    "jsonrepair": "^3.14.0",
     "picocolors": "^1.1.1",
     "zod": "^3.24.1"
   },

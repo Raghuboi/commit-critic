@@ -275,28 +275,27 @@ describe('generateCommitMessage', () => {
 });
 
 describe('extractJson', () => {
-  test('parses valid JSON with and without fences', () => {
-    // Fenced with label
-    expect(extractJson('```json\n{"score": 5}\n```')).toEqual({ score: 5 });
-    // Fenced without label
-    expect(extractJson('```\n{"score": 7}\n```')).toEqual({ score: 7 });
-    // Plain JSON
-    expect(extractJson('{"score": 7, "issues": []}')).toEqual({ score: 7, issues: [] });
-    // Prefers fenced over plain text
+  test('parses valid JSON with and without fences', async () => {
+    expect(await extractJson('```json\n{"score": 5}\n```')).toEqual({ score: 5 });
+    expect(await extractJson('```\n{"score": 7}\n```')).toEqual({ score: 7 });
+    expect(await extractJson('{"score": 7, "issues": []}')).toEqual({ score: 7, issues: [] });
+
     const mixed = 'Here is the result:\n```json\n{"score": 8}\n```\nHope this helps!';
-    expect(extractJson(mixed)).toEqual({ score: 8 });
-    // Handles nested objects
+    expect(await extractJson(mixed)).toEqual({ score: 8 });
+
     const nested = '{"score": 5, "issues": [{"category": "convention", "severity": "suggestion", "message": "test"}]}';
-    const parsed = extractJson(nested) as Record<string, unknown>;
+    const parsed = await extractJson(nested) as Record<string, unknown>;
     expect(parsed.score).toBe(5);
     expect(Array.isArray(parsed.issues)).toBe(true);
   });
 
-  test('returns null for invalid inputs and broken fences', () => {
-    expect(extractJson('not json')).toBeNull();
-    expect(extractJson('')).toBeNull();
-    // Broken fence content
-    expect(extractJson('```json\n{broken json\n```')).toBeNull();
+  test('repairs common malformed JSON with jsonrepair', async () => {
+    expect(await extractJson('{"score": 5 "issues": []}')).toEqual({ score: 5, issues: [] });
+  });
+
+  test('returns null for non-JSON text and empty input', async () => {
+    expect(await extractJson('not json')).toBeNull();
+    expect(await extractJson('')).toBeNull();
   });
 });
 

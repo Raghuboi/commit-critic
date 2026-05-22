@@ -1,16 +1,17 @@
-export function extractJson(text: string): unknown | null {
+import { safeParseJSON } from '@ai-sdk/provider-utils';
+import { jsonrepair } from 'jsonrepair';
+
+export async function extractJson(text: string): Promise<unknown | null> {
   const withoutThinking = stripThinking(text).trim();
-  const codeFence = withoutThinking.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeFence?.[1]) {
-    const parsed = tryParseJson(codeFence[1]);
+  if (!withoutThinking) return null;
+
+  const candidates = jsonCandidates(withoutThinking);
+  for (const candidate of candidates) {
+    const parsed = await parsePossiblyRepairedJson(candidate);
     if (parsed !== null) return parsed;
   }
 
-  const direct = tryParseJson(withoutThinking);
-  if (direct !== null) return direct;
-
-  const objectText = extractFirstJsonObject(withoutThinking);
-  return objectText ? tryParseJson(objectText) : null;
+  return null;
 }
 
 export function stripThinking(text: string): string {
@@ -21,25 +22,34 @@ export function stripThinking(text: string): string {
     .trim();
 }
 
-function tryParseJson(text: string): unknown | null {
+function jsonCandidates(text: string): string[] {
+  const candidates: string[] = [];
+  const codeFence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeFence?.[1]) candidates.push(codeFence[1]);
+
+  candidates.push(text);
+
+  const objectText = extractFirstJsonObject(text);
+  if (objectText) candidates.push(objectText);
+
+  return [...new Set(candidates.map(candidate => candidate.trim()).filter(Boolean))];
+}
+
+async function parsePossiblyRepairedJson(text: string): Promise<unknown | null> {
+  const direct = await safeParseJSON({ text });
+  if (direct.success && isJsonContainer(direct.value)) return direct.value;
+
   try {
-    return JSON.parse(text.trim());
+    const repaired = jsonrepair(text);
+    const repairedResult = await safeParseJSON({ text: repaired });
+    return repairedResult.success && isJsonContainer(repairedResult.value) ? repairedResult.value : null;
   } catch {
-    try {
-      return JSON.parse(repairCommonJsonMistakes(text));
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
-function repairCommonJsonMistakes(text: string): string {
-  return text
-    .trim()
-    .replace(/"\s*\n\s*"/g, '",\n"')
-    .replace(/}\s*\n\s*{/g, '},\n{')
-    .replace(/]\s*\n\s*"/g, '],\n"')
-    .replace(/}\s*\n\s*"/g, '},\n"');
+function isJsonContainer(value: unknown): boolean {
+  return value !== null && typeof value === 'object';
 }
 
 function extractFirstJsonObject(text: string): string | null {

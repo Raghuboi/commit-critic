@@ -169,7 +169,7 @@ export async function analyzeCommitWithLLM(
       ...requestOptions(aiConfig),
     });
 
-  const normalized = normalizeAnalysisResult(extractJson(textResult.text));
+  const normalized = normalizeAnalysisResult(await extractJson(textResult.text));
   if (normalized) return normalized;
   throw new Error('Failed to parse LLM response as JSON');
 }
