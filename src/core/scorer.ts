@@ -16,15 +16,11 @@
 
 import type { Commit } from '../types/commit';
 import type { ScoringResult, Issue, IssueCategory } from '../types/scoring';
+import { CONVENTIONAL_TYPES, CONVENTIONAL_TYPES_SET } from '../utils/commit-types';
 
 const VAGUE_KEYWORDS = new Set([
   'fix', 'fixed', 'update', 'updated', 'wip', 'changes', 'stuff',
   'things', 'bugfix', 'patch', 'tweak', 'adjust', 'modify',
-]);
-
-const CONVENTIONAL_TYPES = new Set([
-  'feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test',
-  'build', 'ci', 'chore', 'revert',
 ]);
 
 const CONVENTIONAL_REGEX = /^(\w+)(?:\(([^)]+)\))?!?:\s*(.+)$/;
@@ -165,12 +161,12 @@ export function scoreCommit(commit: Commit): ScoringResult {
     });
   } else {
     const type = ccMatch[1];
-    if (!CONVENTIONAL_TYPES.has(type)) {
+    if (!CONVENTIONAL_TYPES_SET.has(type)) {
       issues.push({
         category: 'convention',
         severity: 'warning',
         message: `Unrecognized conventional commit type "${type}".`,
-        suggestion: `Use one of: ${Array.from(CONVENTIONAL_TYPES).join(', ')}`,
+        suggestion: `Use one of: ${CONVENTIONAL_TYPES.join(', ')}`,
         rewrite: `feat: ${ccMatch[3]}`,
       });
     }

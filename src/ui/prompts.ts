@@ -6,25 +6,10 @@
  */
 
 import { select, input, confirm } from '@inquirer/prompts';
-
-export const COMMIT_TYPES = [
-  { name: 'feat', value: 'feat', description: 'A new feature' },
-  { name: 'fix', value: 'fix', description: 'A bug fix' },
-  { name: 'docs', value: 'docs', description: 'Documentation only changes' },
-  { name: 'style', value: 'style', description: 'Code style changes' },
-  { name: 'refactor', value: 'refactor', description: 'Code refactoring' },
-  { name: 'perf', value: 'perf', description: 'Performance improvements' },
-  { name: 'test', value: 'test', description: 'Adding or updating tests' },
-  { name: 'build', value: 'build', description: 'Build system changes' },
-  { name: 'ci', value: 'ci', description: 'CI/CD changes' },
-  { name: 'chore', value: 'chore', description: 'Other changes' },
-  { name: 'revert', value: 'revert', description: 'Revert a commit' },
-] as const;
-
-const COMMIT_TYPE_VALUES = new Set<string>(COMMIT_TYPES.map((type) => type.value));
+import { COMMIT_TYPE_OPTIONS, CONVENTIONAL_TYPES_SET } from '../utils/commit-types';
 
 export function isCommitType(value: string | undefined): boolean {
-  return Boolean(value && COMMIT_TYPE_VALUES.has(value));
+  return Boolean(value && CONVENTIONAL_TYPES_SET.has(value));
 }
 
 /**
@@ -34,7 +19,7 @@ export async function promptCommitType(preselected?: string): Promise<string> {
   if (preselected) return preselected;
   return select({
     message: 'Select commit type:',
-    choices: COMMIT_TYPES,
+    choices: COMMIT_TYPE_OPTIONS,
   });
 }
 
