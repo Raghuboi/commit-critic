@@ -188,7 +188,7 @@ export async function commitStagedChanges(
     cwd: repoPath,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...Bun.env, GIT_EDITOR: 'true' },
+    env: gitCommitEnv(),
   });
   const output = await new Response(proc.stdout).text();
   const err = await new Response(proc.stderr).text();
@@ -198,4 +198,32 @@ export async function commitStagedChanges(
   }
   const failure = [err.trim(), output.trim()].filter(Boolean).join('\n');
   return { success: false, error: failure || `git commit failed with exit code ${exitCode}` };
+}
+
+function gitCommitEnv(): Record<string, string> {
+  const allowedKeys = [
+    'PATH',
+    'HOME',
+    'USERPROFILE',
+    'SystemRoot',
+    'WINDIR',
+    'TMPDIR',
+    'TEMP',
+    'TMP',
+    'SHELL',
+    'GIT_AUTHOR_NAME',
+    'GIT_AUTHOR_EMAIL',
+    'GIT_COMMITTER_NAME',
+    'GIT_COMMITTER_EMAIL',
+    'GIT_CONFIG_GLOBAL',
+    'GIT_CONFIG_NOSYSTEM',
+    'GIT_CONFIG_SYSTEM',
+  ];
+
+  const env: Record<string, string> = { GIT_EDITOR: 'true' };
+  for (const key of allowedKeys) {
+    const value = Bun.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
 }

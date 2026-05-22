@@ -27,10 +27,10 @@ export { extractJson } from './json-helper';
 type GlobalWithAiSdkWarnings = typeof globalThis & { AI_SDK_LOG_WARNINGS?: boolean };
 (globalThis as GlobalWithAiSdkWarnings).AI_SDK_LOG_WARNINGS = false;
 
-function requestOptions(aiConfig: AIConfig) {
+function requestOptions(aiConfig: AIConfig): { maxRetries: number; timeout?: { totalMs: number } } {
   return {
     maxRetries: aiConfig.maxRetries,
-    timeout: { totalMs: aiConfig.timeoutMs },
+    ...(aiConfig.timeoutMs > 0 ? { timeout: { totalMs: aiConfig.timeoutMs } } : {}),
   };
 }
 

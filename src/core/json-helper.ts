@@ -16,9 +16,9 @@ export async function extractJson(text: string): Promise<unknown | null> {
 
 export function stripThinking(text: string): string {
   return text
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<think>[\s\S]*$/gi, '')
-    .replace(/<\/think>/gi, '')
+    .replace(/<think\s*>[\s\S]*?<\/think\s*>/gi, '')
+    .replace(/<think\s*>[\s\S]*$/gi, '')
+    .replace(/<\/think\s*>/gi, '')
     .trim();
 }
 
