@@ -1,89 +1,78 @@
 # commit-critic
 
-AI-powered commit message review and commit writing in your terminal. Point it at a Git repository, let an LLM critique recent commit history, then use the interactive writer to turn staged changes into a clear Conventional Commit.
+Stop shipping `fix stuff` commits.
 
-## What it does
+`commit-critic` is an LLM-powered terminal tool for improving Git commit messages. It reviews recent commit history, explains what makes messages weak or strong, and helps write a clear commit message from staged changes.
 
-`commit-critic` has two primary workflows:
+Two workflows matter most:
 
-1. `analyze` reviews existing commit messages in the current repository or a remote repository URL.
-2. `write` reads `git diff --staged`, summarizes the detected changes, and suggests a commit message you can accept, edit, regenerate, or replace.
-
-The tool uses deterministic checks for reliable baseline signals and an LLM for semantic critique. If the LLM is unavailable, it can fall back to deterministic scoring unless strict mode is enabled.
+- `analyze`: score and critique recent commits in the current repo or a remote Git URL.
+- `write`: read `git diff --staged`, summarize the change, and suggest a Conventional Commit you can accept, edit, regenerate, or replace.
 
 ## Requirements
 
 - Bun 1.3.9+
-- Git in PATH
-- An LLM API key, or an OpenAI-compatible local or hosted endpoint
+- Git in `PATH`
+- An OpenAI API key, an OpenAI-compatible hosted endpoint, or a local OpenAI-compatible server
 
 Install Bun if needed:
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
-# or: brew install bun
 ```
 
-## Quickstart from source
+## 60-second start from source
 
 ```bash
 git clone <repo-url> commit-critic
 cd commit-critic
 bun install --frozen-lockfile
 
+# Default path: OpenAI or a hosted OpenAI-compatible /v1 endpoint
 export AI_PROVIDER=openai
-export AI_MODEL=gpt-4.1
-export OPENAI_API_KEY=sk-...
+export AI_MODEL=<model-name>
+export AI_API_KEY=<api-key>
+export AI_BASE_URL=https://provider.example/v1   # omit for api.openai.com
 
 bun ./src/cli.ts doctor
-bun ./src/cli.ts analyze
+bun ./src/cli.ts analyze --count 5
 
 git add <files>
 bun ./src/cli.ts write
 ```
 
-That is the core workflow:
-
-1. `doctor` checks Git, repository detection, provider config, and provider connectivity.
-2. `analyze` reviews recent commit messages in the current repo.
-3. `write` reads staged changes and suggests a commit message interactively.
-
-## Running commands
-
-From a source checkout, run commands through Bun:
+If you are using OpenAI directly, use `OPENAI_API_KEY` instead of `AI_API_KEY` and omit `AI_BASE_URL`:
 
 ```bash
-bun ./src/cli.ts <command>
+export AI_PROVIDER=openai
+export AI_MODEL=gpt-4.1
+export OPENAI_API_KEY=sk-...
 ```
 
-After installing or linking the package, use the shorter binary form:
+## Provider setup
+
+`commit-critic` uses LLM mode by default. `doctor` is the fastest way to verify config before running analysis or commit writing.
+
+### OpenAI-compatible endpoint
+
+Use this for hosted providers that implement the OpenAI `/v1` API:
 
 ```bash
-commit-critic <command>
+export AI_PROVIDER=openai
+export AI_MODEL=<provider-model-id>
+export AI_BASE_URL=https://provider.example/v1
+export AI_API_KEY=<provider-api-key>
+
+bun ./src/cli.ts doctor
+bun ./src/cli.ts analyze --count 5 --json
 ```
 
-The examples below use `commit-critic` for readability. If the binary is not on your PATH, replace it with `bun ./src/cli.ts`.
-
-## Package usage
-
-If the package is installed or linked, use the `commit-critic` binary:
+Provider-specific aliases also work:
 
 ```bash
-bunx --bun commit-critic doctor
-bunx --bun commit-critic analyze
-bunx --bun commit-critic write
+export OPENAI_BASE_URL=https://provider.example/v1
+export OPENAI_API_KEY=<provider-api-key>
 ```
-
-For local development, you can link the package:
-
-```bash
-bun link
-cd /path/to/another/repo
-bun link commit-critic
-commit-critic analyze
-```
-
-## LLM provider setup
 
 ### OpenAI
 
@@ -92,26 +81,8 @@ export AI_PROVIDER=openai
 export AI_MODEL=gpt-4.1
 export OPENAI_API_KEY=sk-...
 
-commit-critic doctor
+bun ./src/cli.ts doctor
 ```
-
-### Hosted OpenAI-compatible API
-
-Use this path for hosted APIs that implement the OpenAI chat completions format. Keep `AI_PROVIDER=openai` and override the base URL.
-
-```bash
-export AI_PROVIDER=openai
-export AI_MODEL=MiniMax-M2.7
-export AI_BASE_URL=https://api.minimax.io/v1
-export AI_API_KEY=your-api-key
-
-commit-critic doctor
-commit-critic analyze --count 5 --json
-```
-
-`OPENAI_BASE_URL` and `OPENAI_API_KEY` also work. Provider-specific variables take precedence over the generic `AI_BASE_URL` and `AI_API_KEY` aliases.
-
-The interactive `setup` command covers standard OpenAI, OpenRouter, and a generic local endpoint. For a hosted compatible endpoint, set the four variables above manually or copy `.env.example` to `.env` and edit them there.
 
 ### OpenRouter
 
@@ -120,47 +91,63 @@ export AI_PROVIDER=openrouter
 export AI_MODEL=anthropic/claude-sonnet-4
 export OPENROUTER_API_KEY=sk-or-...
 
-commit-critic doctor
+bun ./src/cli.ts doctor
 ```
 
 ### Local OpenAI-compatible server
 
-Local servers are useful for private repositories or offline development.
+Local providers are useful for private repos or offline development. The generic `local` provider expects an OpenAI-compatible server at `http://localhost:8081/v1` by default.
 
 ```bash
-export AI_PROVIDER=llamacpp
-export AI_MODEL=qwen3.6
-export LLAMACPP_BASE_URL=http://localhost:8081/v1
+export AI_PROVIDER=local
+export AI_MODEL=local-model
+export AI_BASE_URL=http://localhost:8081/v1
 
-commit-critic doctor
+bun ./src/cli.ts doctor
 ```
 
-Supported provider values:
+Preset provider names are also available:
 
-| Provider | Purpose | Default base URL |
+| Provider | Default base URL | Notes |
 | --- | --- | --- |
-| `openai` | OpenAI, or hosted OpenAI-compatible chat APIs with a custom base URL | `https://api.openai.com/v1` |
-| `openrouter` | OpenRouter hosted models | `https://openrouter.ai/api/v1` |
-| `local` | Generic local OpenAI-compatible server | `http://localhost:8081/v1` |
-| `llamacpp` | llama.cpp local server | `http://localhost:8081/v1` |
-| `lmstudio` | LM Studio local server | `http://localhost:1234/v1` |
-| `vllm` | vLLM local or hosted server | `http://localhost:8000/v1` |
-| `ollama` | Ollama OpenAI-compatible endpoint | `http://localhost:11434/v1` |
+| `llamacpp` | `http://localhost:8081/v1` | Uses the completions endpoint for better local reasoning-model output |
+| `lmstudio` | `http://localhost:1234/v1` | Local LM Studio server |
+| `vllm` | `http://localhost:8000/v1` | Local or hosted vLLM server |
+| `ollama` | `http://localhost:11434/v1` | Ollama OpenAI-compatible endpoint |
+
+For local servers that require auth, set `LOCAL_API_KEY`, `VLLM_API_KEY`, or the generic `AI_API_KEY`.
 
 ## Commands
 
-### `analyze`
-
-Analyze the last 50 commits in the current repository by default.
+From a source checkout:
 
 ```bash
-commit-critic analyze
-commit-critic analyze --count 10
-commit-critic analyze --url https://github.com/user/repo
-commit-critic analyze --json > commit-quality.json
+bun ./src/cli.ts <command>
 ```
 
-Your output varies. Structure looks like this:
+After installing the package or compiling a binary:
+
+```bash
+commit-critic <command>
+```
+
+### Analyze commit history
+
+```bash
+# Analyze the last 50 commits in the current repo
+commit-critic analyze
+
+# Analyze fewer commits
+commit-critic analyze --count 10
+
+# Analyze a remote repository
+commit-critic analyze --url https://github.com/steel-dev/steel-browser
+
+# Machine-readable output
+commit-critic analyze --count 10 --json
+```
+
+Terminal output groups weak commits, strong commits, and repo-level stats:
 
 ```text
 Analyzing 50 commits...
@@ -180,7 +167,7 @@ WELL-WRITTEN COMMITS
 
 Commit: "feat(api): add Redis caching layer"
 Score: 9/10
-Why it's good: Clear scope, specific change, and useful implementation context.
+Why it's good: Clear scope, specific change, and useful context.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 YOUR STATS
@@ -190,33 +177,38 @@ Vague commits: 3 (6%)
 One-word commits: 0 (0%)
 ```
 
-Flags:
+When stdout is piped, JSON output is enabled automatically. Top-level JSON fields include `version`, `command`, `repo`, `commitCount`, `overallScore`, `summary`, `commits`, `stats`, `topIssues`, and `durationMs`.
+
+Useful flags:
 
 | Flag | Description |
 | --- | --- |
 | `--count <n>` | Number of commits to analyze. Default: 50 |
 | `--url <url>` | Analyze a remote repo using `https://`, `git@`, `file://`, or an absolute path |
-| `--provider <name>` | Override `AI_PROVIDER` for this run |
-| `--model <name>` | Override `AI_MODEL` for this run |
+| `--provider <name>` | Override `AI_PROVIDER` for one run |
+| `--model <name>` | Override `AI_MODEL` for one run |
 | `--no-llm` | Use deterministic scoring only |
 | `--no-merges` | Exclude merge commits |
-| `--json` | Write JSON output. Also auto-enabled when stdout is piped |
-| `--verbose` | Include diagnostic statistics |
+| `--json` | Force JSON output |
 
 Aliases: `commit-critic a`, `commit-critic --analyze`
 
-### `write`
+### Write a commit message
 
-Analyze staged changes and suggest a commit message. The tool does not commit automatically unless you pass `--commit`, and even then it asks for confirmation.
+`write` reads staged changes. It does not commit unless you pass `--commit`, and even then it asks for confirmation.
 
 ```bash
 git add <files>
 commit-critic write
+
+# Preselect type
 commit-critic write --type refactor
+
+# Offer to commit after accepting the message
 commit-critic write --commit
 ```
 
-Your output varies. Structure looks like this:
+Example flow:
 
 ```text
 Analyzing staged changes... (3 files changed, +82 -19 lines)
@@ -238,29 +230,27 @@ refactor(config): align provider URL precedence
 Press Enter to accept, type a custom message, or /e=edit /r=regenerate /c=cancel:
 ```
 
-Flags:
+Useful flags:
 
 | Flag | Description |
 | --- | --- |
-| `--type <type>` | Preselect commit type: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` |
-| `--provider <name>` | Override `AI_PROVIDER` for this run |
-| `--model <name>` | Override `AI_MODEL` for this run |
-| `--no-llm` | Use a deterministic template instead |
+| `--type <type>` | Preselect commit type |
+| `--provider <name>` | Override `AI_PROVIDER` for one run |
+| `--model <name>` | Override `AI_MODEL` for one run |
+| `--no-llm` | Use a deterministic template |
 | `--commit` | Ask to run `git commit` after accepting the message |
 
 Aliases: `commit-critic w`, `commit-critic --write`
 
-### `doctor`
-
-Check that commit-critic can see Git, the current repository, provider config, and provider connectivity.
+### Check setup
 
 ```bash
 commit-critic doctor
 ```
 
-### `setup`
+`doctor` checks Git, repository detection, provider configuration, and provider connectivity. API keys are masked in diagnostic output.
 
-Interactive provider wizard. It prints the environment variables commit-critic needs and writes `.env` only after confirmation.
+### Configure interactively
 
 ```bash
 commit-critic setup
@@ -268,27 +258,28 @@ commit-critic setup --quick
 commit-critic setup --non-interactive
 ```
 
-Use `setup` for standard OpenAI, OpenRouter, or a generic local endpoint. For MiniMax or another hosted OpenAI-compatible API, configure the environment variables from the hosted compatible endpoint section instead.
+`setup` supports standard OpenAI, OpenRouter, and a generic local endpoint. For hosted OpenAI-compatible endpoints, set the environment variables shown above or copy `.env.example` to `.env` and edit it.
 
-## JSON output
+## Running through bunx
 
-`analyze --json` writes structured output suitable for CI or scripts. JSON mode is also enabled automatically when stdout is piped.
+For a local package install from another project:
 
 ```bash
-commit-critic analyze --json > commit-quality.json
-commit-critic analyze --count 20 | jq '.overallScore'
+bun add file:/path/to/commit-critic
+bunx --bun commit-critic --help
+bunx --bun commit-critic doctor
 ```
 
-Top-level fields include `version`, `command`, `repo`, `commitCount`, `overallScore`, `summary`, `commits`, `stats`, `topIssues`, and `durationMs`.
+For development inside this repo, `bun ./src/cli.ts ...` is the most direct path.
 
 ## Build and compile
 
 ```bash
 # Bundled JavaScript
 bun run build
-./dist/cli.js --help
+bun ./dist/cli.js --help
 
-# Standalone binary for the current platform
+# Standalone binary for your current platform
 bun run compile
 ./dist/commit-critic --help
 
@@ -297,7 +288,22 @@ bun run compile:linux
 ./dist/commit-critic-linux-x64 --help
 ```
 
-Compiled binaries accept the same environment variables and commands as the Bun entry point.
+Compiled binaries use the same commands and environment variables as the Bun entry point.
+
+## Offline fallback
+
+LLM mode is the main workflow. Use `--no-llm` when you need a quick deterministic smoke test or your provider is temporarily unavailable:
+
+```bash
+bun ./src/cli.ts analyze --no-llm --count 1 --json
+bun ./src/cli.ts write --no-llm
+```
+
+Set strict mode if you want provider errors to fail the command instead of falling back:
+
+```bash
+export AI_STRICT_MODE=true
+```
 
 ## Development checks
 
@@ -313,90 +319,51 @@ bun pm pack --dry-run
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success. Completed analysis exits 0 even when commits score poorly |
-| `1` | Operational error such as Git failure, I/O failure, or unexpected exception |
+| `0` | Success. Analysis exits 0 even when commits need work |
+| `1` | Operational error such as Git, I/O, or unexpected failure |
 | `3` | Provider auth or config error |
-| `10` | Invalid input such as bad `--count`, no staged changes, or invalid `--type` |
-
-## Setup checklist
-
-If you are starting from a fresh clone and want the fastest validation path:
-
-```bash
-bun install --frozen-lockfile
-bun ./src/cli.ts --help
-bun ./src/cli.ts analyze --no-llm --count 1 --json
-```
-
-Then validate the LLM path:
-
-```bash
-export AI_PROVIDER=openai
-export AI_MODEL=MiniMax-M2.7
-export AI_BASE_URL=https://api.minimax.io/v1
-export AI_API_KEY=your-api-key
-
-bun ./src/cli.ts doctor
-bun ./src/cli.ts analyze --count 5 --json
-```
-
-For commit writing, stage at least one file first:
-
-```bash
-git add <files>
-bun ./src/cli.ts write --commit
-```
+| `10` | Invalid input such as bad `--count`, invalid `--type`, or no staged changes |
 
 ## Troubleshooting
 
-### Missing provider API key
+### `doctor` reports a missing key
 
-Set the provider-specific key or the generic `AI_API_KEY` alias:
+Set a provider-specific key or the generic alias:
 
 ```bash
 export AI_PROVIDER=openai
 export OPENAI_API_KEY=sk-...
 
-# or for a compatible endpoint
+# compatible endpoint
 export AI_PROVIDER=openai
-export AI_BASE_URL=https://api.example.com/v1
-export AI_API_KEY=your-api-key
+export AI_BASE_URL=https://provider.example/v1
+export AI_API_KEY=<provider-api-key>
 ```
 
-### Connectivity is unreachable
+### Connectivity fails
 
-Run `doctor`, then check the provider URL and model name:
+Check that the base URL includes `/v1`, the model name exists on that provider, and the server is reachable:
 
 ```bash
 commit-critic doctor
-commit-critic analyze --provider openai --model gpt-4.1 --count 5
+commit-critic analyze --count 1 --json
 ```
 
-Compatible endpoint URLs should include the `/v1` suffix.
+### `write` says there are no staged changes
 
-### No staged changes
-
-Stage files before using `write`:
+Stage files first:
 
 ```bash
 git add <files>
 commit-critic write
 ```
 
-### Not a Git repository
+### Not in a Git repository
 
-Run inside a repo, or analyze a remote URL:
+Run inside a repo or pass a remote URL:
 
 ```bash
 commit-critic analyze --url https://github.com/user/repo
-```
-
-### LLM falls back to deterministic scoring
-
-commit-critic keeps running if the provider is temporarily unavailable. To fail instead of falling back:
-
-```bash
-export AI_STRICT_MODE=true
 ```
 
 ## License
