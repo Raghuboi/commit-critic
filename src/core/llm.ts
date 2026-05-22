@@ -86,22 +86,36 @@ function createOpenAIProvider(aiConfig: AIConfig, providerConfig: ProviderSpecif
   });
 }
 
-function createCompatibleProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): OpenAICompatibleProvider {
+function usesCustomOpenAIBaseUrl(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): boolean {
+  const definition = getProviderDefinition(aiConfig.provider);
+  return definition.transport === 'openai' && getProviderBaseUrl(definition.name, providerConfig) !== definition.defaultBaseUrl;
+}
+
+function createCompatibleProvider(
+  aiConfig: AIConfig,
+  providerConfig: ProviderSpecificConfig,
+  supportsStructuredOutputs?: boolean
+): OpenAICompatibleProvider {
   const definition = getProviderDefinition(aiConfig.provider);
   return createOpenAICompatible({
     name: definition.name,
     baseURL: getProviderBaseUrl(definition.name, providerConfig),
     apiKey: getProviderApiKey(definition.name, providerConfig) ?? 'not-required',
-    supportsStructuredOutputs: definition.supportsStructuredOutputs,
+    supportsStructuredOutputs: supportsStructuredOutputs ?? definition.supportsStructuredOutputs,
     headers: definition.headers,
   });
 }
 
 export function getProvider(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig) {
   const definition = getProviderDefinition(aiConfig.provider);
-  return definition.transport === 'openai'
+  return definition.transport === 'openai' && !usesCustomOpenAIBaseUrl(aiConfig, providerConfig)
     ? createOpenAIProvider(aiConfig, providerConfig)
-    : createCompatibleProvider(aiConfig, providerConfig);
+    : createCompatibleProvider(aiConfig, providerConfig, getSupportsStructuredOutputs(aiConfig, providerConfig));
+}
+
+function getSupportsStructuredOutputs(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): boolean {
+  if (usesCustomOpenAIBaseUrl(aiConfig, providerConfig)) return false;
+  return getProviderDefinition(aiConfig.provider).supportsStructuredOutputs;
 }
 
 function getModel(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): LanguageModelV4 {
@@ -109,11 +123,11 @@ function getModel(aiConfig: AIConfig, providerConfig: ProviderSpecificConfig): L
 
   const definition = getProviderDefinition(aiConfig.provider);
 
-  if (definition.transport === 'openai') {
+  if (definition.transport === 'openai' && !usesCustomOpenAIBaseUrl(aiConfig, providerConfig)) {
     return createOpenAIProvider(aiConfig, providerConfig)(aiConfig.model);
   }
 
-  const provider = createCompatibleProvider(aiConfig, providerConfig);
+  const provider = createCompatibleProvider(aiConfig, providerConfig, getSupportsStructuredOutputs(aiConfig, providerConfig));
   if (definition.transport === 'compatible-completion') {
     // llama.cpp/Qwen reasoning models often expose final text through
     // /v1/completions while /v1/chat/completions may emit only reasoning parts.
@@ -132,7 +146,7 @@ export async function analyzeCommitWithLLM(
 ): Promise<LLMAnalysisResult> {
   const model = getModel(aiConfig, providerConfig);
   const prompt = buildAnalysisPrompt(commit, deterministic);
-  const supportsStructuredOutputs = getProviderDefinition(aiConfig.provider).supportsStructuredOutputs;
+  const supportsStructuredOutputs = getSupportsStructuredOutputs(aiConfig, providerConfig);
 
   if (supportsStructuredOutputs) {
     try {

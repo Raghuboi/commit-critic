@@ -49,6 +49,7 @@ export function resolveProviderConfig(providerName = getEnv('AI_PROVIDER', 'open
 
   return {
     openaiApiKey: getEnv('OPENAI_API_KEY') ?? (provider === 'openai' ? getEnv('AI_API_KEY') : undefined),
+    openaiBaseUrl: provider === 'openai' ? providerBaseUrl ?? getEnv('AI_BASE_URL') ?? definition.defaultBaseUrl : undefined,
     openrouterApiKey: getEnv('OPENROUTER_API_KEY') ?? (provider === 'openrouter' ? getEnv('AI_API_KEY') : undefined),
     localBaseUrl: providerBaseUrl ?? getEnv('AI_BASE_URL') ?? definition.defaultBaseUrl,
     localApiKey: getEnv('LOCAL_API_KEY') ?? (isLocalProvider(provider) ? getEnv('AI_API_KEY') : undefined) ?? getEnv('VLLM_API_KEY'),
@@ -65,10 +66,11 @@ export function validateAIConfig(config: AIConfig): string | null {
     }
   }
 
-  if (isLocalProvider(config.provider)) {
-    const baseUrl = providerConfig.localBaseUrl;
+  const definition = getProviderDefinition(config.provider);
+  if (definition.baseUrlConfigKey) {
+    const baseUrl = providerConfig[definition.baseUrlConfigKey];
     if (!isValidHttpUrl(baseUrl)) {
-      return `Invalid local LLM base URL "${baseUrl ?? ''}". Use an http(s) URL such as http://localhost:8081/v1.`;
+      return `Invalid LLM base URL "${baseUrl ?? ''}". Use an http(s) URL such as https://api.example.com/v1.`;
     }
   }
 

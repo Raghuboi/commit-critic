@@ -78,6 +78,7 @@ export class DoctorCommand extends Command {
     );
 
     if (providerConfig.openaiApiKey) this.context.stdout.write(`  OPENAI_API_KEY=${maskKey(providerConfig.openaiApiKey)}\n`);
+    if (providerConfig.openaiBaseUrl && aiConfig.provider === 'openai') this.context.stdout.write(`  OPENAI_BASE_URL=${providerConfig.openaiBaseUrl}\n`);
     if (providerConfig.openrouterApiKey) this.context.stdout.write(`  OPENROUTER_API_KEY=${maskKey(providerConfig.openrouterApiKey)}\n`);
     if (providerConfig.localBaseUrl && isLocalProvider(aiConfig.provider)) this.context.stdout.write(`  AI_BASE_URL=${providerConfig.localBaseUrl}\n`);
     if (providerConfig.localApiKey && isLocalProvider(aiConfig.provider)) this.context.stdout.write(`  LOCAL_API_KEY=${maskKey(providerConfig.localApiKey)}\n`);

@@ -4,6 +4,7 @@
 
 import { test, expect, beforeEach, afterEach } from 'bun:test';
 import { resolveAIConfig, validateAIConfig, resolveProviderConfig, normalizeProvider } from '../config/ai-config';
+import { getProviderBaseUrl } from '../config/providers';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -84,7 +85,7 @@ test('local provider validates base URL shape', () => {
   const config = resolveAIConfig();
   const err = validateAIConfig(config);
 
-  expect(err).toContain('Invalid local LLM base URL');
+  expect(err).toContain('Invalid LLM base URL');
 });
 
 test('local presets stay distinct and use preset base URLs', () => {
@@ -117,6 +118,32 @@ test('provider config resolves generic API key aliases for hosted providers', ()
 
   expect(openrouterProvider.openrouterApiKey).toBe('sk-shared-openrouter');
   expect(validateAIConfig(openrouterConfig)).toBeNull();
+});
+
+test('openai provider accepts OpenAI-compatible base URL overrides', () => {
+  process.env.AI_PROVIDER = 'openai';
+  process.env.OPENAI_API_KEY = 'sk-openai-compatible';
+  process.env.OPENAI_BASE_URL = 'https://api.example.com/v1';
+
+  const config = resolveAIConfig();
+  const provider = resolveProviderConfig(config.provider);
+
+  expect(provider.openaiBaseUrl).toBe('https://api.example.com/v1');
+  expect(getProviderBaseUrl(config.provider, provider)).toBe('https://api.example.com/v1');
+  expect(validateAIConfig(config)).toBeNull();
+});
+
+test('AI_BASE_URL is a generic base URL alias for openai-compatible APIs', () => {
+  process.env.AI_PROVIDER = 'openai';
+  process.env.AI_API_KEY = 'sk-generic-compatible';
+  process.env.AI_BASE_URL = 'https://api.compatible.test/v1';
+
+  const config = resolveAIConfig();
+  const provider = resolveProviderConfig(config.provider);
+
+  expect(provider.openaiApiKey).toBe('sk-generic-compatible');
+  expect(provider.openaiBaseUrl).toBe('https://api.compatible.test/v1');
+  expect(validateAIConfig(config)).toBeNull();
 });
 
 test('unknown provider falls back to openai', () => {

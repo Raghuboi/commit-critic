@@ -32,6 +32,7 @@ export interface AIConfig {
 /** Provider-specific config. */
 export interface ProviderSpecificConfig {
   openaiApiKey?: string;
+  openaiBaseUrl?: string;
   openrouterApiKey?: string;
   localBaseUrl?: string;
   localApiKey?: string;

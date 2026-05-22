@@ -38,6 +38,8 @@ export const PROVIDER_REGISTRY = {
     apiKeyEnv: 'OPENAI_API_KEY',
     apiKeyConfigKey: 'openaiApiKey',
     apiKeyRequired: true,
+    baseUrlEnv: 'OPENAI_BASE_URL',
+    baseUrlConfigKey: 'openaiBaseUrl',
   },
   openrouter: {
     name: 'openrouter',
@@ -46,7 +48,7 @@ export const PROVIDER_REGISTRY = {
     description: 'OpenRouter API (requires API key)',
     defaultModel: 'anthropic/claude-sonnet-4',
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
-    supportsStructuredOutputs: true,
+    supportsStructuredOutputs: false,
     apiKeyEnv: 'OPENROUTER_API_KEY',
     apiKeyConfigKey: 'openrouterApiKey',
     apiKeyRequired: true,
