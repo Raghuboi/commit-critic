@@ -86,9 +86,11 @@ test('--analyze supports equals-style --url for remote repos', async () => {
     await commitFile(pushDir, 'r.txt', 'r', 'feat: remote commit');
     await runGit(pushDir, ['push', remoteDir, 'main']);
 
-    const { stdout, exitCode } = await runCli(['--analyze', '--no-llm', `--url=file://${remoteDir}`, '--count=10']);
+    const { stdout, stderr, exitCode } = await runCli(['--analyze', '--no-llm', `--url=file://${remoteDir}`, '--count=10']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('feat: remote commit');
+    expect(stderr).not.toContain('Cloning into');
+    const json = JSON.parse(stdout);
+    expect(json.commits[0].subject).toBe('feat: remote commit');
   } finally {
     await rm(remoteDir, { recursive: true, force: true });
     await rm(pushDir, { recursive: true, force: true });

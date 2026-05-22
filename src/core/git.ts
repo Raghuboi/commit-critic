@@ -165,12 +165,15 @@ export async function cloneRepo(url: string, dest: string, depth = 50, branch?: 
   }
   args.push(url, dest);
   const proc = Bun.spawn(args, {
-    stdout: 'inherit',
-    stderr: 'inherit',
+    stdout: 'pipe',
+    stderr: 'pipe',
   });
+  const output = await new Response(proc.stdout).text();
+  const err = await new Response(proc.stderr).text();
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`git clone failed with exit code ${exitCode}`);
+    const details = [err.trim(), output.trim()].filter(Boolean).join('\n');
+    throw new Error(details || `git clone failed with exit code ${exitCode}`);
   }
 }
 
