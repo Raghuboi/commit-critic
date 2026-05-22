@@ -43,6 +43,19 @@ describe('buildAnalysisPrompt', () => {
     expect(prompt).toContain('Score: 2/10');
     expect(prompt).toContain('Too vague to explain the change');
   });
+
+  test('renders deterministic issues on separate lines', () => {
+    const prompt = buildAnalysisPrompt(commit, {
+      ...deterministic,
+      issues: [
+        ...deterministic.issues,
+        { category: 'clarity', severity: 'warning', message: 'Missing outcome' },
+      ],
+    });
+
+    expect(prompt).toContain('- [critical] Too vague to explain the change\n- [warning] Missing outcome');
+    expect(prompt).not.toContain('\\\\n- [warning] Missing outcome');
+  });
 });
 
 describe('buildWritePrompt prompt structure', () => {

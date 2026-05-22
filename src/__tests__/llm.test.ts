@@ -239,6 +239,27 @@ describe('generateCommitMessage', () => {
     expect(result2).toBe('fix: resolve null pointer');
   });
 
+  test('preserves real newlines in structured commit message bodies', async () => {
+    const mockModel = createMockModel(JSON.stringify({
+      type: 'feat',
+      scope: 'api',
+      description: 'add cache layer',
+      body: '- Add Redis cache\n- Configure TTL',
+    }));
+
+    const result = await generateCommitMessage(
+      'diff --git a/src/cache.ts b/src/cache.ts\n+export const ttl = 60',
+      'feat',
+      'api',
+      undefined,
+      { ...mockAIConfig, __testModel: mockModel },
+      mockProviderConfig
+    );
+
+    expect(result).toBe('feat(api): add cache layer\n\n- Add Redis cache\n- Configure TTL');
+    expect(result).not.toContain('\\\\n');
+  });
+
 });
 
 // ── extractJson ───────────────────────────────────────────────────────────────

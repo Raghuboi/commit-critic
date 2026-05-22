@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { buildTemplateMessage } from '../core/writer';
+import { buildTemplateMessage, formatSuggestedCommitMessage } from '../core/writer';
 import { buildWritePrompt } from '../core/prompts';
 import { WRITE_MAX_CHARS, WRITE_DIFF_TRUNCATED, truncateDiff } from '../utils/diff';
 
@@ -14,6 +14,14 @@ describe('buildTemplateMessage', () => {
 
   test('includes description when provided', () => {
     expect(buildTemplateMessage('docs', undefined, 'update README')).toBe('docs: update README');
+  });
+});
+
+describe('formatSuggestedCommitMessage', () => {
+  test('uses real newlines around suggestion content', () => {
+    const formatted = formatSuggestedCommitMessage('docs(readme): add API setup');
+    expect(formatted).toBe('\nSuggested commit message:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\ndocs(readme): add API setup\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    expect(formatted).not.toContain('\\n');
   });
 });
 

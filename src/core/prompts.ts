@@ -8,9 +8,9 @@ import type { Commit } from '../types/commit';
 import type { ScoringResult } from '../types/scoring';
 import { WRITE_MAX_CHARS, WRITE_DIFF_TRUNCATED, truncateDiff } from '../utils/diff';
 
-export { truncateDiff };
+export const MAX_BULLET_DIFF_CHARS = 8_000;
 
-export { WRITE_MAX_CHARS, WRITE_DIFF_TRUNCATED };
+export { truncateDiff };
 
 export const ANALYSIS_SYSTEM_IDENTITY = `You are a senior engineer reviewing commit message quality.`;
 
@@ -44,8 +44,12 @@ Few-shot examples:
 - 2: "fixed bug" — vague, no scope or impact. Better: "fix(api): resolve null pointer in user validation"
 - 4: "Added new feature" — no type, no scope, no specifics. Better: "feat(dashboard): add real-time analytics widget"
 - 6: "fix: handle auth errors" — CC format but no specifics. Better: "fix(auth): handle expired JWT tokens in middleware"
-- 8: "feat(api): add Redis caching for read endpoints" — Good CC, clear scope. Why it's good: specific scope, imperative mood, clear purpose.
-- 10: "feat(api): add Redis caching layer\n\n- Implement cache for read endpoints\n- Add TTL configuration\n- Improves response time by 200ms" — Perfect CC, body with specifics, measurable impact. Why it's good: follows all conventions, body explains rationale with measurable impact.`;
+- 8: "feat(api): add Redis caching layer" — Good CC, clear scope. Why it's good: specific scope, imperative mood, clear purpose.
+- 10: "feat(api): add Redis caching layer
+
+- Implement cache for read endpoints
+- Add TTL configuration
+- Improves response time by 200ms" — Perfect CC, body with specifics, measurable impact. Why it's good: follows all conventions, body explains rationale with measurable impact.`;
 
 export const WRITE_EXAMPLES = `
 Examples:
@@ -109,4 +113,13 @@ Rules:
 - If the diff is tiny, still name the exact user-visible or code-level change
 - If the diff is truncated, write only from visible evidence and avoid inventing hidden details
 - Return ONLY the commit message, no markdown, no quotes.`;
+}
+
+/**
+ * Build the prompt for generating change bullets from a diff.
+ */
+export function buildBulletsPrompt(diff: string): string {
+  return `Given the following git diff, generate 3-5 concise semantic bullets summarizing the changes. Each bullet should be one short sentence. Return only bullet lines.
+
+${diff}`;
 }

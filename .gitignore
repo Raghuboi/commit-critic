@@ -23,6 +23,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Package artifacts
+*.tgz
+
 # Internal agent docs (private)
 AGENTS.md
 **/AGENTS.md

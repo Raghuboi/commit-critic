@@ -42,6 +42,7 @@ export class WriteCommand extends Command {
     examples: [
       ['Interactive writer', 'commit-critic write'],
       ['Pre-select type', 'commit-critic write --type feat'],
+      ['Commit after accepting the generated message', 'commit-critic write --commit'],
     ],
   });
 
@@ -125,7 +126,7 @@ export class WriteCommand extends Command {
       noLlm: this.noLlm,
       aiConfig: this.noLlm ? undefined : aiConfig,
       providerConfig: this.noLlm ? undefined : providerConfig,
-    });
+    }, this.context.stdout);
 
     if (message) {
       this.context.stdout.write(message + '\n');

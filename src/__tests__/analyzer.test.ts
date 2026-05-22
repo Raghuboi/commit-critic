@@ -59,14 +59,21 @@ describe('analyzeCommit', () => {
   });
 
   test('strict mode throws on LLM failure', async () => {
+    const { MockLanguageModelV4 } = await import('ai/test');
+    const mockModel = new MockLanguageModelV4({
+      doGenerate: async () => {
+        throw new Error('API failure');
+      },
+    });
+
     await expect(
       analyzeCommit(makeCommit('fix: handle edge case'), {
         noLlm: false,
         strict: true,
-        aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: true, temperature: 0.1, maxTokens: 4096, maxRetries: 2, timeoutMs: 60_000 },
-        providerConfig: { openaiApiKey: 'invalid-key-for-test' },
+        aiConfig: { provider: 'openai', model: 'gpt-4.1', strictMode: true, temperature: 0.1, maxTokens: 4096, maxRetries: 0, timeoutMs: 60_000, __testModel: mockModel },
+        providerConfig: { openaiApiKey: 'sk-test' },
       })
-    ).rejects.toThrow();
+    ).rejects.toThrow('API failure');
   });
 });
 

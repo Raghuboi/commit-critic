@@ -17,10 +17,9 @@ import type { AIConfig, ProviderSpecificConfig } from '../types/config';
 import type { Commit } from '../types/commit';
 import type { ScoringResult } from '../types/scoring';
 import { getProviderApiKey, getProviderBaseUrl, getProviderDefinition } from '../config/providers';
-import { buildAnalysisPrompt, buildWritePrompt } from './prompts';
+import { buildAnalysisPrompt, buildWritePrompt, buildBulletsPrompt, MAX_BULLET_DIFF_CHARS } from './prompts';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-const MAX_BULLET_DIFF_CHARS = 8_000;
 
 type GlobalWithAiSdkWarnings = typeof globalThis & { AI_SDK_LOG_WARNINGS?: boolean };
 (globalThis as GlobalWithAiSdkWarnings).AI_SDK_LOG_WARNINGS = false;
@@ -184,6 +183,13 @@ export async function analyzeCommitWithLLM(
   throw new Error('Failed to parse LLM response as JSON');
 }
 
+const CommitMessageSchema = z.object({
+  type: z.string(),
+  scope: z.string().optional(),
+  description: z.string(),
+  body: z.string().optional(),
+});
+
 /** Generate a commit message suggestion. */
 export async function generateCommitMessage(
   diff: string,
@@ -195,11 +201,35 @@ export async function generateCommitMessage(
 ): Promise<string> {
   const model = getModel(aiConfig, providerConfig);
   const prompt = buildWritePrompt(diff, type, scope, description);
+  const supportsStructuredOutputs = getSupportsStructuredOutputs(aiConfig, providerConfig);
 
-  const result = await withTimeout((signal) =>
+  if (supportsStructuredOutputs) {
+    try {
+      const result = await withTimeout((signal) =>
+        generateText({
+          model,
+          output: Output.object({ schema: CommitMessageSchema }),
+          prompt,
+          temperature: aiConfig.temperature,
+          maxOutputTokens: aiConfig.maxTokens,
+          abortSignal: signal,
+        }),
+        aiConfig.timeoutMs
+      );
+
+      const { type: t, scope: s, description: d, body: b } = result.output;
+      const scopePart = s ? `(${s})` : '';
+      const bodyPart = b ? `\n\n${b}` : '';
+      return `${t}${scopePart}: ${d}${bodyPart}`;
+    } catch (err) {
+      if (!(err instanceof NoObjectGeneratedError)) throw err;
+    }
+  }
+
+  const textResult = await withTimeout((signal) =>
     generateText({
       model,
-      prompt,
+      prompt: prompt + '\n\nRespond with a commit message. Follow the conventional commit format (type(scope): description). If a body is needed, include it after a blank line.',
       temperature: aiConfig.temperature,
       maxOutputTokens: aiConfig.maxTokens,
       abortSignal: signal,
@@ -207,7 +237,7 @@ export async function generateCommitMessage(
     aiConfig.timeoutMs
   );
 
-  return cleanCommitMessage(result.text);
+  return cleanCommitMessage(textResult.text);
 }
 
 /**
@@ -228,7 +258,7 @@ export async function generateChangeBullets(
       const result = await withTimeout((signal) =>
         generateText({
           model,
-          prompt: `Given the following git diff, generate 3-5 concise semantic bullets summarizing the changes. Each bullet should be one short sentence. Return only bullet lines.\n\n${diff.slice(0, MAX_BULLET_DIFF_CHARS)}`,
+          prompt: buildBulletsPrompt(diff.slice(0, MAX_BULLET_DIFF_CHARS)),
           temperature: 0.3,
           maxOutputTokens: 300,
           abortSignal: signal,

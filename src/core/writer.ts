@@ -19,9 +19,12 @@ import {
   promptAction,
   promptEdit,
 } from '../ui/prompts';
-import { truncateDiff } from '../utils/diff';
-import { WRITE_MAX_CHARS } from './prompts';
+import { truncateDiff, WRITE_MAX_CHARS } from '../utils/diff';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
+
+type WriterOutput = Pick<NodeJS.WriteStream, 'write'>;
+
+const SUGGESTION_RULE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
 
 export interface WriterOptions {
   preselectedType?: string;
@@ -30,10 +33,14 @@ export interface WriterOptions {
   providerConfig?: ProviderSpecificConfig;
 }
 
+export function formatSuggestedCommitMessage(suggestion: string): string {
+  return `\nSuggested commit message:\n${SUGGESTION_RULE}\n${suggestion}\n${SUGGESTION_RULE}\n`;
+}
+
 /**
  * Run interactive commit writer.
  */
-export async function runWriter(diff: string, options: WriterOptions): Promise<string | null> {
+export async function runWriter(diff: string, options: WriterOptions, stdout?: WriterOutput): Promise<string | null> {
   const type = await promptCommitType(options.preselectedType);
   const scope = await promptScope();
   const description = await promptDescription();
@@ -46,13 +53,10 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
     suggestion = await generateCommitMessage(truncated, type, scope, description, options.aiConfig, options.providerConfig);
   }
 
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const line = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-    process.stdout.write('\nSuggested commit message:\n');
-    process.stdout.write(line + '\n');
-    process.stdout.write(suggestion + '\n');
-    process.stdout.write(line + '\n');
+  const out = stdout || process.stdout;
+  let active = true;
+  while (active) {
+    out.write(formatSuggestedCommitMessage(suggestion));
 
     const result = await promptAction(suggestion);
     if (result.action === 'accept') {
@@ -72,9 +76,11 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
       continue;
     }
     if (result.action === 'cancel') {
-      return null;
+      active = false;
     }
   }
+
+  return null;
 }
 
 /**
