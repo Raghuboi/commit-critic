@@ -29,14 +29,14 @@ export function renderAnalysis(results: AnalysisResult[], summary: AnalysisSumma
 
   if (needsWork.length > 0) {
     console.log(`\n${line}`);
-    console.log(c(useColor, pc.red, 'COMMITS THAT NEED WORK'));
+    console.log(c(useColor, pc.red, '💩 COMMITS THAT NEED WORK'));
     console.log(line);
     for (const r of needsWork) renderCommit(r, useColor);
   }
 
   if (good.length > 0) {
     console.log(`\n${line}`);
-    console.log(c(useColor, pc.green, 'WELL-WRITTEN COMMITS'));
+    console.log(c(useColor, pc.green, '💎 WELL-WRITTEN COMMITS'));
     console.log(line);
     for (const r of good) renderCommit(r, useColor);
   }
@@ -106,7 +106,7 @@ export function renderSummary(summary: AnalysisSummary, useColor = !noColor(), v
   const line = c(useColor, pc.gray, '━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   const total = summary.commitCount || 1;
   console.log(`\n${line}`);
-  console.log(c(useColor, pc.blue, 'YOUR STATS'));
+  console.log(c(useColor, pc.blue, '📊 YOUR STATS'));
   console.log(line);
   console.log(`Average score: ${summary.overallScore.toFixed(1)}/10`);
 

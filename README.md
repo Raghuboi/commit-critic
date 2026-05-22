@@ -99,7 +99,7 @@ Example output:
 Analyzing 50 commits...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COMMITS THAT NEED WORK
+💩 COMMITS THAT NEED WORK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Commit: "fixed bug"
@@ -108,7 +108,7 @@ Issue: Too vague - which bug? What was the impact?
 Better: "fix(auth): resolve token expiration handling"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WELL-WRITTEN COMMITS
+💎 WELL-WRITTEN COMMITS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Commit: "feat(api): add Redis caching layer"
@@ -116,7 +116,7 @@ Score: 9/10
 Why it's good: Clear scope, specific change, and useful context.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YOUR STATS
+📊 YOUR STATS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Average score: 7.4/10
 Vague commits: 3 (6%)
@@ -279,7 +279,7 @@ bun run compile:linux
 ./dist/commit-critic-linux-x64 --help
 ```
 
-Compiled binaries use the same commands and environment variables as the Bun entry point.
+Compiled binaries use the same commands and environment variables as the Bun entry point. `compile:linux` produced an 85 MB standalone Linux x64 binary in local verification.
 
 ## Development checks
 
