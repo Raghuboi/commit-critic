@@ -144,6 +144,36 @@ test('setup command quick exits zero when local provider config is valid', async
   expect(stdout).toContain('Provider config is valid');
 });
 
+test('analyze rejects invalid --count before reading commits', async () => {
+  const repo = await createRepo('commit-critic-invalid-count-');
+  try {
+    const { stderr, exitCode } = await runCli(['analyze', '--count', '0', '--no-llm'], repo);
+    expect(exitCode).toBe(10);
+    expect(stderr).toContain('Invalid --count value');
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+test('doctor masks configured API keys', async () => {
+  const repo = await createRepo('commit-critic-doctor-mask-');
+  try {
+    const { stdout, exitCode } = await runCli(['doctor'], repo, {
+      env: {
+        AI_PROVIDER: 'openai',
+        AI_MODEL: 'test-model',
+        AI_BASE_URL: 'https://example.com/v1',
+        AI_API_KEY: 'sk-1234567890abcdef',
+      },
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('OPENAI_API_KEY=sk-...cdef');
+    expect(stdout).not.toContain('sk-1234567890abcdef');
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
 test('write rejects invalid commit type before prompting', async () => {
   const repo = await createRepo('commit-critic-invalid-type-');
   try {

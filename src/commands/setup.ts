@@ -6,7 +6,7 @@
 
 import { Command, Option } from 'clipanion';
 import { select, input, password, confirm } from '@inquirer/prompts';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, rename, chmod } from 'node:fs/promises';
 import pc from 'picocolors';
 import { resolveAIConfig, resolveProviderConfig, maskKey, validateAIConfig } from '../config/ai-config';
 import { getProviderApiKey, getProviderBaseUrl, getProviderDefinition, isLocalProvider, SETUP_PROVIDERS } from '../config/providers';
@@ -172,5 +172,8 @@ async function updateEnvFile(path: string, values: Record<string, string>): Prom
 
   const additions = Array.from(pending.entries()).map(([key, value]) => `${key}=${value}`);
   const next = [...lines.filter((line, index) => !(index === lines.length - 1 && line === '')), ...additions].join('\n') + '\n';
-  await writeFile(path, next);
+  const tmpPath = `${path}.tmp`;
+  await writeFile(tmpPath, next, { mode: 0o600 });
+  await rename(tmpPath, path);
+  await chmod(path, 0o600);
 }
