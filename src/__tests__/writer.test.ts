@@ -14,10 +14,6 @@ describe('buildTemplateMessage', () => {
     expect(buildTemplateMessage('docs', undefined, 'update README')).toBe('docs: update README');
   });
 
-  test('includes scope and description', () => {
-    expect(buildTemplateMessage('feat', 'auth', 'add login')).toBe('feat(auth): add login');
-  });
-
   test('handles edge cases (special chars, unicode, empty scope)', () => {
     // Special characters
     expect(buildTemplateMessage('fix', 'ui', 'handle "quotes" & <brackets>')).toBe(
