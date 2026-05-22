@@ -6,6 +6,11 @@
 
 import type { Commit } from '../types/commit';
 import type { ScoringResult } from '../types/scoring';
+import { WRITE_MAX_CHARS, WRITE_DIFF_TRUNCATED, truncateDiff } from '../utils/diff';
+
+export { truncateDiff };
+
+export { WRITE_MAX_CHARS, WRITE_DIFF_TRUNCATED };
 
 export const ANALYSIS_SYSTEM_IDENTITY = `You are a senior engineer reviewing commit message quality.`;
 
@@ -62,6 +67,8 @@ Provide your score, issues, suggestions, optional suggestion (best tip), and opt
  * Build the write prompt for generating a commit message from staged diff.
  */
 export function buildWritePrompt(diff: string, type: string, scope?: string, description?: string): string {
+  const truncated = truncateDiff(diff);
+
   return `Write a concise, conventional commit message for the following staged changes.
 
 Commit type: ${type}
@@ -69,7 +76,7 @@ ${scope ? `Scope: ${scope}` : ''}
 ${description ? `Description: ${description}` : ''}
 
 Staged diff:
-${diff.slice(0, 12000)}
+${truncated}
 
 Rules:
 - Subject line <= 50 characters

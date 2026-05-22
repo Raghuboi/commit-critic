@@ -20,6 +20,7 @@ import {
   promptEdit,
 } from '../ui/prompts';
 import { truncateDiff } from '../utils/diff';
+import { WRITE_MAX_CHARS } from './prompts';
 import type { AIConfig, ProviderSpecificConfig } from '../types/config';
 
 export interface WriterOptions {
@@ -41,7 +42,7 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
   if (options.noLlm || !options.aiConfig || !options.providerConfig) {
     suggestion = buildTemplateMessage(type, scope, description);
   } else {
-    const truncated = truncateDiff(diff, 50000);
+    const truncated = truncateDiff(diff, WRITE_MAX_CHARS);
     suggestion = await generateCommitMessage(truncated, type, scope, description, options.aiConfig, options.providerConfig);
   }
 
@@ -65,7 +66,7 @@ export async function runWriter(diff: string, options: WriterOptions): Promise<s
       if (options.noLlm || !options.aiConfig || !options.providerConfig) {
         suggestion = buildTemplateMessage(type, scope, description);
       } else {
-        const truncated = truncateDiff(diff, 50000);
+        const truncated = truncateDiff(diff, WRITE_MAX_CHARS);
         suggestion = await generateCommitMessage(truncated, type, scope, description, options.aiConfig, options.providerConfig);
       }
       continue;

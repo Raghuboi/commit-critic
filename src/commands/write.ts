@@ -7,7 +7,7 @@
  * 3. Prompt user for commit type (select)
  * 4. Prompt user for scope (text, optional)
  * 5. Prompt user for description (text)
- * 6. Read staged diff, truncate if >50K chars
+ * 6. Read staged diff
  * 7. Call LLM to generate commit message
  * 8. Show suggestion to user
  * 9. Prompt: accept, edit, regenerate, or cancel
