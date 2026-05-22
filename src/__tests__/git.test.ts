@@ -3,7 +3,7 @@
  */
 
 import { test, expect, beforeAll, afterAll } from 'bun:test';
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getCommits, isGitRepo, hasStagedChanges, getStagedDiff, cloneRepo, commitStagedChanges } from '../core/git';
@@ -27,15 +27,15 @@ beforeAll(async () => {
   await runGit(tempDir, ['config', 'user.name', 'Test']);
 
   // Create a few commits
-  await writeFile(join(tempDir, 'a.txt'), 'hello');
+  await Bun.write(join(tempDir, 'a.txt'), 'hello');
   await runGit(tempDir, ['add', 'a.txt']);
   await runGit(tempDir, ['commit', '-m', 'feat: initial commit']);
 
-  await writeFile(join(tempDir, 'b.txt'), 'world');
+  await Bun.write(join(tempDir, 'b.txt'), 'world');
   await runGit(tempDir, ['add', 'b.txt']);
   await runGit(tempDir, ['commit', '-m', 'wip']);
 
-  await writeFile(join(tempDir, 'c.txt'), 'foo');
+  await Bun.write(join(tempDir, 'c.txt'), 'foo');
   await runGit(tempDir, ['add', 'c.txt']);
   await runGit(tempDir, ['commit', '-m', 'fix: resolve auth bug\n\n- Handle token expiry\n- Add retry logic']);
 
@@ -80,7 +80,7 @@ test('detects staged changes', async () => {
   await runGit(workDir, ['config', 'user.email', 'test@test.com']);
   await runGit(workDir, ['config', 'user.name', 'Test']);
   expect(await hasStagedChanges(workDir)).toBe(false);
-  await writeFile(join(workDir, 'x.txt'), 'x');
+  await Bun.write(join(workDir, 'x.txt'), 'x');
   await runGit(workDir, ['add', 'x.txt']);
   expect(await hasStagedChanges(workDir)).toBe(true);
   const diff = await getStagedDiff(workDir);
@@ -95,7 +95,7 @@ test('commits staged changes successfully', async () => {
   await runGit(workDir, ['config', 'user.name', 'Test']);
 
   // Create a file and stage it
-  await writeFile(join(workDir, 'test.txt'), 'hello world');
+  await Bun.write(join(workDir, 'test.txt'), 'hello world');
   await runGit(workDir, ['add', 'test.txt']);
 
   // Verify no commits yet
@@ -126,7 +126,7 @@ test('fails to commit when nothing is staged', async () => {
   await runGit(workDir, ['config', 'user.name', 'Test']);
 
   // Create a file but don't stage it
-  await writeFile(join(workDir, 'test.txt'), 'hello world');
+  await Bun.write(join(workDir, 'test.txt'), 'hello world');
 
   // Commit should fail
   const result = await commitStagedChanges(workDir, 'feat: add test file');

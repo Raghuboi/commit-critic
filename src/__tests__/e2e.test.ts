@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -58,7 +58,7 @@ async function createRepo(prefix: string) {
 }
 
 async function commitFile(repo: string, fileName: string, content: string, message: string) {
-  await writeFile(join(repo, fileName), content);
+  await Bun.write(join(repo, fileName), content);
   await runGit(repo, ['add', fileName]);
   await runGit(repo, ['commit', '-m', message]);
 }
@@ -178,7 +178,7 @@ test('doctor masks configured API keys', async () => {
 test('write rejects invalid commit type before prompting', async () => {
   const repo = await createRepo('commit-critic-invalid-type-');
   try {
-    await writeFile(join(repo, 'invalid-type.txt'), 'hello');
+    await Bun.write(join(repo, 'invalid-type.txt'), 'hello');
     await runGit(repo, ['add', 'invalid-type.txt']);
 
     const { stderr, exitCode } = await runCli(['write', '--no-llm', '--type', 'invalid'], repo);
@@ -193,7 +193,7 @@ test('write accepts prefilled prompt values and prints a commit message', async 
   const repo = await createRepo('commit-critic-write-prefill-');
   try {
     await commitFile(repo, 'initial.txt', 'init', 'feat: initial commit');
-    await writeFile(join(repo, 'docs.md'), 'usage notes');
+    await Bun.write(join(repo, 'docs.md'), 'usage notes');
     await runGit(repo, ['add', 'docs.md']);
 
     const { stdout, exitCode } = await runCli(

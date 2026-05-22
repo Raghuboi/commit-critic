@@ -188,7 +188,7 @@ export async function commitStagedChanges(
     cwd: repoPath,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, GIT_EDITOR: 'true' },
+    env: { ...Bun.env, GIT_EDITOR: 'true' },
   });
   const output = await new Response(proc.stdout).text();
   const err = await new Response(proc.stderr).text();
